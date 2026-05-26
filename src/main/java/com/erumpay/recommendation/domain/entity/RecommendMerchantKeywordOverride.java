@@ -39,5 +39,5 @@ public class RecommendMerchantKeywordOverride {
 	private LocalDateTime createdAt;
 
 	@Column(name = "is_active", nullable = false)
-	private Boolean active;
+	private boolean active;
 }

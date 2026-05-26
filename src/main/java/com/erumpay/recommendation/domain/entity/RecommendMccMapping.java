@@ -42,5 +42,5 @@ public class RecommendMccMapping {
 	private LocalDateTime updatedAt;
 
 	@Column(name = "is_active", nullable = false)
-	private Boolean active;
+	private boolean active;
 }

@@ -1,6 +1,7 @@
 package com.erumpay.recommendation.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
@@ -67,6 +68,26 @@ class BenefitSingleRecommendationServiceTest {
 		assertThat(response.totalBenefitAmount()).isZero();
 		assertThat(response.cards()).isEmpty();
 		assertThat(response.reason()).isEqualTo("NO_PAYABLE_CARD");
+	}
+
+	@Test
+	void recommendRejectsInvalidRequestBeforeCalculation() {
+		assertThatThrownBy(() -> recommendationService.recommend(
+			new BenefitSingleRecommendationRequest(null, "스타벅스 강남점", "5814", 10_000L)
+		))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("userId is required");
+	}
+
+	@Test
+	void recommendRejectsNullCardSourceResponse() {
+		givenCategory(ServiceCategory.CAFE);
+		when(cardRecommendationSourceService.getRecommendationSource(10L))
+			.thenReturn(null);
+
+		assertThatThrownBy(() -> recommendationService.recommend(request()))
+			.isInstanceOf(IllegalStateException.class)
+			.hasMessage("card-service recommendation-source response is required");
 	}
 
 	@Test
@@ -188,6 +209,33 @@ class BenefitSingleRecommendationServiceTest {
 
 		assertThat(response.totalBenefitAmount()).isZero();
 		assertThat(response.cards().getFirst().cardId()).isEqualTo(1L);
+		assertThat(response.cards().getFirst().warnings()).containsExactly("NO_APPLICABLE_BENEFIT");
+	}
+
+	@Test
+	void recommendExcludesBenefitWhenTimeFormatIsInvalid() {
+		givenCategory(ServiceCategory.CAFE);
+		when(cardRecommendationSourceService.getRecommendationSource(10L))
+			.thenReturn(source(List.of(
+				card(1L, true, 0L, List.of(
+					benefit(
+						100L,
+						"CAFE",
+						"DISCOUNT",
+						null,
+						"invalid-time",
+						"18:00",
+						"ALL",
+						List.of(),
+						emptyUsage(),
+						List.of(tier(null, 1_000L))
+					)
+				))
+			)));
+
+		BenefitSingleRecommendationResponse response = recommendationService.recommend(request());
+
+		assertThat(response.totalBenefitAmount()).isZero();
 		assertThat(response.cards().getFirst().warnings()).containsExactly("NO_APPLICABLE_BENEFIT");
 	}
 

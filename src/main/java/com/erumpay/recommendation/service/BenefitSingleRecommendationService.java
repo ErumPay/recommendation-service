@@ -16,6 +16,7 @@ import java.util.Comparator;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
@@ -34,13 +35,14 @@ public class BenefitSingleRecommendationService {
 
 	// [be] 이준혁 260526 1440 | 결제 금액 기준 단일 카드 혜택을 계산하고, 적용 혜택이 없으면 주카드 fallback을 반환한다.
 	public BenefitSingleRecommendationResponse recommend(BenefitSingleRecommendationRequest request) {
+		validateRequest(request);
 		ServiceCategory paymentCategory = merchantCategoryResolverService.resolve(
 			new MerchantCategoryResolveRequest(request.merchantName(), request.mccCode())
 		).serviceCategory();
 		CardRecommendationSourceResponse source = cardRecommendationSourceService.getRecommendationSource(
 			request.userId()
 		);
-		List<CardRecommendationSourceCardResponse> cards = safeList(source.cards());
+		List<CardRecommendationSourceCardResponse> cards = sourceCards(source);
 		if (cards.isEmpty()) {
 			return noPayableCardResponse();
 		}
@@ -190,6 +192,31 @@ public class BenefitSingleRecommendationService {
 
 	private <T> List<T> safeList(List<T> values) {
 		return values == null ? List.of() : values;
+	}
+
+	private void validateRequest(BenefitSingleRecommendationRequest request) {
+		if (request == null) {
+			throw new IllegalArgumentException("recommendation request is required");
+		}
+		if (request.userId() == null) {
+			throw new IllegalArgumentException("userId is required");
+		}
+		if (!StringUtils.hasText(request.merchantName())) {
+			throw new IllegalArgumentException("merchantName is required");
+		}
+		if (!StringUtils.hasText(request.mccCode())) {
+			throw new IllegalArgumentException("mccCode is required");
+		}
+		if (request.amount() == null || request.amount() <= 0) {
+			throw new IllegalArgumentException("amount must be positive");
+		}
+	}
+
+	private List<CardRecommendationSourceCardResponse> sourceCards(CardRecommendationSourceResponse source) {
+		if (source == null) {
+			throw new IllegalStateException("card-service recommendation-source response is required");
+		}
+		return safeList(source.cards());
 	}
 
 	private record CardBenefitCandidate(

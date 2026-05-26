@@ -9,6 +9,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.DayOfWeek;
 import java.time.Duration;
+import java.time.DateTimeException;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -125,6 +126,9 @@ public class BenefitScoreCalculator {
 	private boolean matchesTime(CardBenefitResponse benefit, LocalDateTime calculatedAt) {
 		LocalTime start = parseTime(benefit.timeStart());
 		LocalTime end = parseTime(benefit.timeEnd());
+		if (isInvalidTime(benefit.timeStart(), start) || isInvalidTime(benefit.timeEnd(), end)) {
+			return false;
+		}
 		if (start == null && end == null) {
 			return true;
 		}
@@ -256,7 +260,15 @@ public class BenefitScoreCalculator {
 		if (!StringUtils.hasText(value)) {
 			return null;
 		}
-		return LocalTime.parse(value);
+		try {
+			return LocalTime.parse(value);
+		} catch (DateTimeException exception) {
+			return null;
+		}
+	}
+
+	private boolean isInvalidTime(String value, LocalTime parsedTime) {
+		return StringUtils.hasText(value) && parsedTime == null;
 	}
 
 	private boolean isWeekday(DayOfWeek dayOfWeek) {

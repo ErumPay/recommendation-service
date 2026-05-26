@@ -1,6 +1,7 @@
 package com.erumpay.recommendation.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
@@ -62,6 +63,26 @@ class PerfSingleRecommendationServiceTest {
 		assertThat(response.strategyType()).isEqualTo("PERF_SINGLE");
 		assertThat(response.cards()).isEmpty();
 		assertThat(response.reason()).isEqualTo("NO_PAYABLE_CARD");
+	}
+
+	@Test
+	void recommendRejectsInvalidRequestBeforeCalculation() {
+		assertThatThrownBy(() -> recommendationService.recommend(
+			new PerfSingleRecommendationRequest(null, "스타벅스 강남점", "5814", 10_000L)
+		))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("userId is required");
+	}
+
+	@Test
+	void recommendRejectsNullCardSourceResponse() {
+		givenCategory(ServiceCategory.CAFE);
+		when(cardRecommendationSourceService.getRecommendationSource(10L))
+			.thenReturn(null);
+
+		assertThatThrownBy(() -> recommendationService.recommend(request()))
+			.isInstanceOf(IllegalStateException.class)
+			.hasMessage("card-service recommendation-source response is required");
 	}
 
 	@Test
@@ -127,6 +148,54 @@ class PerfSingleRecommendationServiceTest {
 		assertThat(response.cards().getFirst().cardId()).isEqualTo(2L);
 		assertThat(response.cards().getFirst().totalBenefitAmount()).isEqualTo(2_000L);
 		assertThat(response.totalBenefitAmount()).isEqualTo(2_000L);
+	}
+
+	@Test
+	void recommendUsesDefaultCardWhenPerformanceAndBenefitScoresAreTie() {
+		givenCategory(ServiceCategory.CAFE);
+		when(cardRecommendationSourceService.getRecommendationSource(10L))
+			.thenReturn(source(List.of(
+				card(1L, false, 20_000L, List.of(
+					benefit(100L, "CAFE", "DISCOUNT", List.of(
+						tier(0L, null, null, 1_000L),
+						tier(30_000L, null, null, 1_000L)
+					))
+				)),
+				card(2L, true, 20_000L, List.of(
+					benefit(200L, "CAFE", "DISCOUNT", List.of(
+						tier(0L, null, null, 1_000L),
+						tier(30_000L, null, null, 1_000L)
+					))
+				))
+			)));
+
+		PerfSingleRecommendationResponse response = recommendationService.recommend(request());
+
+		assertThat(response.cards().getFirst().cardId()).isEqualTo(2L);
+	}
+
+	@Test
+	void recommendUsesCardIdWhenAllPriorityConditionsAreTie() {
+		givenCategory(ServiceCategory.CAFE);
+		when(cardRecommendationSourceService.getRecommendationSource(10L))
+			.thenReturn(source(List.of(
+				card(2L, false, 20_000L, List.of(
+					benefit(200L, "CAFE", "DISCOUNT", List.of(
+						tier(0L, null, null, 1_000L),
+						tier(30_000L, null, null, 1_000L)
+					))
+				)),
+				card(1L, false, 20_000L, List.of(
+					benefit(100L, "CAFE", "DISCOUNT", List.of(
+						tier(0L, null, null, 1_000L),
+						tier(30_000L, null, null, 1_000L)
+					))
+				))
+			)));
+
+		PerfSingleRecommendationResponse response = recommendationService.recommend(request());
+
+		assertThat(response.cards().getFirst().cardId()).isEqualTo(1L);
 	}
 
 	@Test

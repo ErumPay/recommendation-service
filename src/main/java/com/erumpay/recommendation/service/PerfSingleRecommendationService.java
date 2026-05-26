@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
@@ -37,13 +38,14 @@ public class PerfSingleRecommendationService {
 
 	// [be] 이준혁 260526 1605 | 다음 목표 실적까지 남은 금액이 가장 가까운 단일 카드를 추천한다.
 	public PerfSingleRecommendationResponse recommend(PerfSingleRecommendationRequest request) {
+		validateRequest(request);
 		ServiceCategory paymentCategory = merchantCategoryResolverService.resolve(
 			new MerchantCategoryResolveRequest(request.merchantName(), request.mccCode())
 		).serviceCategory();
 		CardRecommendationSourceResponse source = cardRecommendationSourceService.getRecommendationSource(
 			request.userId()
 		);
-		List<CardRecommendationSourceCardResponse> cards = safeList(source.cards());
+		List<CardRecommendationSourceCardResponse> cards = sourceCards(source);
 		if (cards.isEmpty()) {
 			return noPayableCardResponse();
 		}
@@ -178,6 +180,31 @@ public class PerfSingleRecommendationService {
 
 	private <T> List<T> safeList(List<T> values) {
 		return values == null ? List.of() : values;
+	}
+
+	private void validateRequest(PerfSingleRecommendationRequest request) {
+		if (request == null) {
+			throw new IllegalArgumentException("recommendation request is required");
+		}
+		if (request.userId() == null) {
+			throw new IllegalArgumentException("userId is required");
+		}
+		if (!StringUtils.hasText(request.merchantName())) {
+			throw new IllegalArgumentException("merchantName is required");
+		}
+		if (!StringUtils.hasText(request.mccCode())) {
+			throw new IllegalArgumentException("mccCode is required");
+		}
+		if (request.amount() == null || request.amount() <= 0) {
+			throw new IllegalArgumentException("amount must be positive");
+		}
+	}
+
+	private List<CardRecommendationSourceCardResponse> sourceCards(CardRecommendationSourceResponse source) {
+		if (source == null) {
+			throw new IllegalStateException("card-service recommendation-source response is required");
+		}
+		return safeList(source.cards());
 	}
 
 	private record PerformanceRecommendationCandidate(

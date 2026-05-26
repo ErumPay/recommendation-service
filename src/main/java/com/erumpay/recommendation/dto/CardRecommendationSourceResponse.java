@@ -31,7 +31,18 @@ public record CardRecommendationSourceResponse(
 		String dayCondition,
 		String benefitDesc,
 		List<String> brandNames,
+		CardBenefitUsageResponse usage,
 		List<CardBenefitTierResponse> tiers
+	) {
+	}
+
+	public record CardBenefitUsageResponse(
+		Long dailyAmount,
+		Long dailyCount,
+		Long monthlyAmount,
+		Long monthlyCount,
+		Long yearlyAmount,
+		Long yearlyCount
 	) {
 	}
 

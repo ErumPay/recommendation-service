@@ -3,6 +3,7 @@ package com.erumpay.recommendation.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.erumpay.recommendation.client.CardServiceClient;
@@ -62,6 +63,33 @@ class CardRecommendationSourceServiceTest {
 			.getRecommendationSource(10L, "202604");
 
 		assertThat(response.cards()).isEmpty();
+	}
+
+	@Test
+	void getRecommendationSourceRejectsInvalidUserIdBeforeCallingCardService() {
+		assertThatThrownBy(() -> cardRecommendationSourceService.getRecommendationSource(0L, "202604"))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("userId must be positive");
+
+		verifyNoInteractions(cardServiceClient);
+	}
+
+	@Test
+	void getRecommendationSourceRejectsInvalidYearMonthBeforeCallingCardService() {
+		assertThatThrownBy(() -> cardRecommendationSourceService.getRecommendationSource(10L, "2026-04"))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("yearMonth must be yyyyMM");
+
+		verifyNoInteractions(cardServiceClient);
+	}
+
+	@Test
+	void getRecommendationSourceRejectsInvalidYearMonthValueBeforeCallingCardService() {
+		assertThatThrownBy(() -> cardRecommendationSourceService.getRecommendationSource(10L, "202613"))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessage("yearMonth must be yyyyMM");
+
+		verifyNoInteractions(cardServiceClient);
 	}
 
 	@Test

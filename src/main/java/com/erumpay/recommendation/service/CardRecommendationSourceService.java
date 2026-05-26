@@ -28,7 +28,13 @@ public class CardRecommendationSourceService {
 	// [be] 이준혁 260526 1104 | card-service 장애와 계약 오류를 분리해 재시도 가능한 실패인지 구분한다.
 	public CardRecommendationSourceResponse getRecommendationSource(Long userId, String yearMonth) {
 		try {
-			return cardServiceClient.getRecommendationSource(userId, yearMonth);
+			CardRecommendationSourceResponse response = cardServiceClient.getRecommendationSource(userId, yearMonth);
+			if (response == null) {
+				throw new CardServiceClientException(
+					new IllegalStateException("card-service recommendation-source response is required")
+				);
+			}
+			return response;
 		} catch (FeignException exception) {
 			if (isServiceUnavailable(exception.status())) {
 				throw new CardServiceUnavailableException(exception);

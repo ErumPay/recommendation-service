@@ -65,6 +65,16 @@ class CardRecommendationSourceServiceTest {
 	}
 
 	@Test
+	void getRecommendationSourceThrowsClientExceptionWhenResponseBodyIsNull() {
+		when(cardServiceClient.getRecommendationSource(10L, "202604")).thenReturn(null);
+
+		assertThatThrownBy(() -> cardRecommendationSourceService.getRecommendationSource(10L, "202604"))
+			.isInstanceOf(CardServiceClientException.class)
+			.hasMessage("card-service 요청 처리 실패")
+			.hasCauseInstanceOf(IllegalStateException.class);
+	}
+
+	@Test
 	void getRecommendationSourceThrowsServiceUnavailableWhenCardServiceFails() {
 		when(cardServiceClient.getRecommendationSource(10L, "202604"))
 			.thenThrow(feignException(503));

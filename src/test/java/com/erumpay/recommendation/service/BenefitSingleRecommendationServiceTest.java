@@ -80,17 +80,6 @@ class BenefitSingleRecommendationServiceTest {
 	}
 
 	@Test
-	void recommendRejectsNullCardSourceResponse() {
-		givenCategory(ServiceCategory.CAFE);
-		when(cardRecommendationSourceService.getRecommendationSource(10L))
-			.thenReturn(null);
-
-		assertThatThrownBy(() -> recommendationService.recommend(request()))
-			.isInstanceOf(IllegalStateException.class)
-			.hasMessage("card-service recommendation-source response is required");
-	}
-
-	@Test
 	void recommendSelectsCardWithLargestTotalBenefitAmount() {
 		givenCategory(ServiceCategory.CAFE);
 		when(cardRecommendationSourceService.getRecommendationSource(10L))

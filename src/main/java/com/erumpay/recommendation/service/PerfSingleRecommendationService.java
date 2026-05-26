@@ -201,9 +201,6 @@ public class PerfSingleRecommendationService {
 	}
 
 	private List<CardRecommendationSourceCardResponse> sourceCards(CardRecommendationSourceResponse source) {
-		if (source == null) {
-			throw new IllegalStateException("card-service recommendation-source response is required");
-		}
 		return safeList(source.cards());
 	}
 

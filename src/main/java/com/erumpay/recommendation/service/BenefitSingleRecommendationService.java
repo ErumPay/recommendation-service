@@ -3,12 +3,13 @@ package com.erumpay.recommendation.service;
 import com.erumpay.recommendation.domain.enums.ServiceCategory;
 import com.erumpay.recommendation.dto.BenefitSingleRecommendationRequest;
 import com.erumpay.recommendation.dto.BenefitSingleRecommendationResponse;
-import com.erumpay.recommendation.dto.BenefitSingleRecommendationResponse.RecommendedCardResponse;
 import com.erumpay.recommendation.dto.CardRecommendationSourceResponse;
 import com.erumpay.recommendation.dto.CardRecommendationSourceResponse.CardRecommendationSourceCardResponse;
 import com.erumpay.recommendation.dto.MerchantCategoryResolveRequest;
+import com.erumpay.recommendation.dto.RecommendedCardResponse;
 import com.erumpay.recommendation.service.BenefitScoreCalculator.BenefitScore;
 import com.erumpay.recommendation.service.BenefitScoreCalculator.BenefitScoreContext;
+import com.erumpay.recommendation.service.PerformanceTargetCalculator.PerformanceTargetScore;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Comparator;
@@ -22,11 +23,13 @@ public class BenefitSingleRecommendationService {
 
 	private static final String STRATEGY_TYPE = "BENEFIT_SINGLE";
 	private static final String REASON_NO_PAYABLE_CARD = "NO_PAYABLE_CARD";
+	private static final String REASON_CARD_DEFAULT_MISSING = "CARD_DEFAULT_MISSING";
 	private static final String WARNING_NO_APPLICABLE_BENEFIT = "NO_APPLICABLE_BENEFIT";
 
 	private final MerchantCategoryResolverService merchantCategoryResolverService;
 	private final CardRecommendationSourceService cardRecommendationSourceService;
 	private final BenefitScoreCalculator benefitScoreCalculator;
+	private final PerformanceTargetCalculator performanceTargetCalculator;
 	private final Clock clock;
 
 	// [be] 이준혁 260526 1440 | 결제 금액 기준 단일 카드 혜택을 계산하고, 적용 혜택이 없으면 주카드 fallback을 반환한다.
@@ -54,7 +57,7 @@ public class BenefitSingleRecommendationService {
 			.sorted(benefitPriority())
 			.findFirst()
 			.map(this::successResponse)
-			.orElseGet(() -> fallbackResponse(cards, context.amount()));
+			.orElseGet(() -> fallbackResponse(cards, context));
 	}
 
 	// [be] 이준혁 260526 1440 | 카드 하나에 적용 가능한 모든 혜택을 유형별로 합산한다.
@@ -63,6 +66,7 @@ public class BenefitSingleRecommendationService {
 		BenefitScoreContext context
 	) {
 		BenefitScore score = benefitScoreCalculator.calculate(card, context);
+		PerformanceTargetScore performanceScore = performanceTargetCalculator.calculate(card, context.amount());
 
 		return new CardBenefitCandidate(
 			card,
@@ -71,6 +75,11 @@ public class BenefitSingleRecommendationService {
 			score.cashbackAmount(),
 			score.mileageAmount(),
 			score.totalBenefitAmount(),
+			performanceScore.currentPerformanceAmount(),
+			performanceScore.targetPerformanceAmount(),
+			performanceScore.remainingToTarget(),
+			performanceScore.expectedPerformanceAmount(),
+			performanceScore.willReachTarget(),
 			score.warnings()
 		);
 	}
@@ -86,32 +95,41 @@ public class BenefitSingleRecommendationService {
 
 	private BenefitSingleRecommendationResponse fallbackResponse(
 		List<CardRecommendationSourceCardResponse> cards,
-		long amount
+		BenefitScoreContext context
 	) {
-		CardRecommendationSourceCardResponse fallbackCard = cards.stream()
+		return cards.stream()
 			.filter(card -> Boolean.TRUE.equals(card.isDefault()))
 			.findFirst()
-			.orElseGet(() -> cards.stream()
-				.min(Comparator.comparing(
-					CardRecommendationSourceCardResponse::cardId,
-					Comparator.nullsLast(Comparator.naturalOrder())
-				))
-				.orElseThrow());
+			.map(card -> fallbackResponse(card, context))
+			.orElseGet(this::defaultMissingResponse);
+	}
+
+	private BenefitSingleRecommendationResponse fallbackResponse(
+		CardRecommendationSourceCardResponse fallbackCard,
+		BenefitScoreContext context
+	) {
+		BenefitScore benefitScore = benefitScoreCalculator.calculate(fallbackCard, context);
+		PerformanceTargetScore performanceScore = performanceTargetCalculator.calculate(fallbackCard, context.amount());
 
 		return new BenefitSingleRecommendationResponse(
 			STRATEGY_TYPE,
-			0L,
+			benefitScore.totalBenefitAmount(),
 			List.of(new RecommendedCardResponse(
 				fallbackCard.cardId(),
 				fallbackCard.cardProductId(),
 				fallbackCard.cardCompany(),
 				fallbackCard.cardName(),
 				fallbackCard.maskedNumber(),
-				amount,
-				0L,
-				0L,
-				0L,
-				0L,
+				context.amount(),
+				benefitScore.discountAmount(),
+				benefitScore.cashbackAmount(),
+				benefitScore.mileageAmount(),
+				benefitScore.totalBenefitAmount(),
+				performanceScore.currentPerformanceAmount(),
+				performanceScore.targetPerformanceAmount(),
+				performanceScore.remainingToTarget(),
+				performanceScore.expectedPerformanceAmount(),
+				performanceScore.willReachTarget(),
 				List.of(WARNING_NO_APPLICABLE_BENEFIT)
 			)),
 			null
@@ -120,6 +138,10 @@ public class BenefitSingleRecommendationService {
 
 	private BenefitSingleRecommendationResponse noPayableCardResponse() {
 		return new BenefitSingleRecommendationResponse(STRATEGY_TYPE, 0L, List.of(), REASON_NO_PAYABLE_CARD);
+	}
+
+	private BenefitSingleRecommendationResponse defaultMissingResponse() {
+		return new BenefitSingleRecommendationResponse(STRATEGY_TYPE, 0L, List.of(), REASON_CARD_DEFAULT_MISSING);
 	}
 
 	private RecommendedCardResponse toRecommendedCard(CardBenefitCandidate candidate) {
@@ -135,6 +157,11 @@ public class BenefitSingleRecommendationService {
 			candidate.cashbackAmount(),
 			candidate.mileageAmount(),
 			candidate.totalBenefitAmount(),
+			candidate.currentPerformanceAmount(),
+			candidate.targetPerformanceAmount(),
+			candidate.remainingToTarget(),
+			candidate.expectedPerformanceAmount(),
+			candidate.willReachTarget(),
 			candidate.warnings()
 		);
 	}
@@ -146,6 +173,14 @@ public class BenefitSingleRecommendationService {
 			.thenComparing(Comparator.comparingLong(CardBenefitCandidate::discountAmount).reversed())
 			.thenComparing(Comparator.comparingLong(CardBenefitCandidate::cashbackAmount).reversed())
 			.thenComparing(Comparator.comparingLong(CardBenefitCandidate::mileageAmount).reversed())
+			.thenComparing(
+				CardBenefitCandidate::remainingToTarget,
+				Comparator.nullsLast(Comparator.naturalOrder())
+			)
+			.thenComparing(
+				CardBenefitCandidate::targetPerformanceAmount,
+				Comparator.nullsLast(Comparator.reverseOrder())
+			)
 			.thenComparing(candidate -> !Boolean.TRUE.equals(candidate.card().isDefault()))
 			.thenComparing(
 				candidate -> candidate.card().cardId(),
@@ -164,6 +199,11 @@ public class BenefitSingleRecommendationService {
 		long cashbackAmount,
 		long mileageAmount,
 		long totalBenefitAmount,
+		Long currentPerformanceAmount,
+		Long targetPerformanceAmount,
+		Long remainingToTarget,
+		Long expectedPerformanceAmount,
+		Boolean willReachTarget,
 		List<String> warnings
 	) {
 	}

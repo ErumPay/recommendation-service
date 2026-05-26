@@ -35,6 +35,7 @@ class BenefitSingleRecommendationServiceTest {
 	private CardRecommendationSourceService cardRecommendationSourceService;
 
 	private BenefitScoreCalculator benefitScoreCalculator;
+	private PerformanceTargetCalculator performanceTargetCalculator;
 	private BenefitSingleRecommendationService recommendationService;
 
 	@BeforeEach
@@ -44,10 +45,12 @@ class BenefitSingleRecommendationServiceTest {
 			ZoneId.of("Asia/Seoul")
 		);
 		benefitScoreCalculator = new BenefitScoreCalculator();
+		performanceTargetCalculator = new PerformanceTargetCalculator();
 		recommendationService = new BenefitSingleRecommendationService(
 			merchantCategoryResolverService,
 			cardRecommendationSourceService,
 			benefitScoreCalculator,
+			performanceTargetCalculator,
 			clock
 		);
 	}
@@ -87,6 +90,7 @@ class BenefitSingleRecommendationServiceTest {
 		assertThat(response.cards().getFirst().cardId()).isEqualTo(2L);
 		assertThat(response.cards().getFirst().cashbackAmount()).isEqualTo(2_050L);
 		assertThat(response.cards().getFirst().mileageAmount()).isEqualTo(100L);
+		assertThat(response.cards().getFirst().currentPerformanceAmount()).isZero();
 	}
 
 	@Test
@@ -197,6 +201,7 @@ class BenefitSingleRecommendationServiceTest {
 			merchantCategoryResolverService,
 			cardRecommendationSourceService,
 			benefitScoreCalculator,
+			performanceTargetCalculator,
 			nightClock
 		);
 		givenCategory(ServiceCategory.CAFE);
@@ -291,6 +296,45 @@ class BenefitSingleRecommendationServiceTest {
 	}
 
 	@Test
+	void recommendUsesPerformanceTargetWhenBenefitAmountsTie() {
+		givenCategory(ServiceCategory.CAFE);
+		when(cardRecommendationSourceService.getRecommendationSource(10L))
+			.thenReturn(source(List.of(
+				card(1L, true, 20_000L, List.of(
+					benefit(100L, "CAFE", "DISCOUNT", List.of(
+						tier(0L, null, null, 1_000L, null, null, null),
+						tier(30_000L, null, null, 1_000L, null, null, null)
+					))
+				)),
+				card(2L, false, 25_000L, List.of(
+					benefit(200L, "CAFE", "DISCOUNT", List.of(
+						tier(0L, null, null, 1_000L, null, null, null),
+						tier(30_000L, null, null, 1_000L, null, null, null)
+					))
+				))
+			)));
+
+		BenefitSingleRecommendationResponse response = recommendationService.recommend(request());
+
+		assertThat(response.cards().getFirst().cardId()).isEqualTo(2L);
+		assertThat(response.cards().getFirst().remainingToTarget()).isEqualTo(5_000L);
+	}
+
+	@Test
+	void recommendReturnsDefaultMissingWhenFallbackNeedsDefaultCardButDefaultIsMissing() {
+		givenCategory(ServiceCategory.CAFE);
+		when(cardRecommendationSourceService.getRecommendationSource(10L))
+			.thenReturn(source(List.of(
+				card(1L, false, 0L, List.of())
+			)));
+
+		BenefitSingleRecommendationResponse response = recommendationService.recommend(request());
+
+		assertThat(response.cards()).isEmpty();
+		assertThat(response.reason()).isEqualTo("CARD_DEFAULT_MISSING");
+	}
+
+	@Test
 	void recommendAddsBoundaryWarningsToApplicableBenefit() {
 		Clock boundaryClock = Clock.fixed(
 			Instant.parse("2026-05-29T14:55:00Z"),
@@ -300,6 +344,7 @@ class BenefitSingleRecommendationServiceTest {
 			merchantCategoryResolverService,
 			cardRecommendationSourceService,
 			benefitScoreCalculator,
+			performanceTargetCalculator,
 			boundaryClock
 		);
 		givenCategory(ServiceCategory.CAFE);
@@ -374,6 +419,15 @@ class BenefitSingleRecommendationServiceTest {
 		String benefitType,
 		CardBenefitTierResponse tier
 	) {
+		return benefit(benefitId, serviceCategory, benefitType, List.of(tier));
+	}
+
+	private CardBenefitResponse benefit(
+		Long benefitId,
+		String serviceCategory,
+		String benefitType,
+		List<CardBenefitTierResponse> tiers
+	) {
 		return benefit(
 			benefitId,
 			serviceCategory,
@@ -384,7 +438,7 @@ class BenefitSingleRecommendationServiceTest {
 			"ALL",
 			List.of(),
 			emptyUsage(),
-			List.of(tier)
+			tiers
 		);
 	}
 

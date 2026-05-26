@@ -34,6 +34,7 @@ class BenefitSingleRecommendationServiceTest {
 	@Mock
 	private CardRecommendationSourceService cardRecommendationSourceService;
 
+	private BenefitScoreCalculator benefitScoreCalculator;
 	private BenefitSingleRecommendationService recommendationService;
 
 	@BeforeEach
@@ -42,9 +43,11 @@ class BenefitSingleRecommendationServiceTest {
 			Instant.parse("2026-05-26T01:00:00Z"),
 			ZoneId.of("Asia/Seoul")
 		);
+		benefitScoreCalculator = new BenefitScoreCalculator();
 		recommendationService = new BenefitSingleRecommendationService(
 			merchantCategoryResolverService,
 			cardRecommendationSourceService,
+			benefitScoreCalculator,
 			clock
 		);
 	}
@@ -193,6 +196,7 @@ class BenefitSingleRecommendationServiceTest {
 		recommendationService = new BenefitSingleRecommendationService(
 			merchantCategoryResolverService,
 			cardRecommendationSourceService,
+			benefitScoreCalculator,
 			nightClock
 		);
 		givenCategory(ServiceCategory.CAFE);
@@ -295,6 +299,7 @@ class BenefitSingleRecommendationServiceTest {
 		recommendationService = new BenefitSingleRecommendationService(
 			merchantCategoryResolverService,
 			cardRecommendationSourceService,
+			benefitScoreCalculator,
 			boundaryClock
 		);
 		givenCategory(ServiceCategory.CAFE);

@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 
 import com.erumpay.recommendation.client.CardServiceClient;
 import com.erumpay.recommendation.dto.CardRecommendationSourceResponse;
+import com.erumpay.recommendation.exception.CardServiceClientException;
 import com.erumpay.recommendation.exception.CardServiceUnavailableException;
 import feign.FeignException;
 import feign.Request;
@@ -71,6 +72,16 @@ class CardRecommendationSourceServiceTest {
 		assertThatThrownBy(() -> cardRecommendationSourceService.getRecommendationSource(10L, "202604"))
 			.isInstanceOf(CardServiceUnavailableException.class)
 			.hasMessage("card-service 연동 실패");
+	}
+
+	@Test
+	void getRecommendationSourceThrowsClientExceptionWhenCardServiceReturnsClientError() {
+		when(cardServiceClient.getRecommendationSource(10L, "202604"))
+			.thenThrow(feignException(400));
+
+		assertThatThrownBy(() -> cardRecommendationSourceService.getRecommendationSource(10L, "202604"))
+			.isInstanceOf(CardServiceClientException.class)
+			.hasMessage("card-service 요청 처리 실패");
 	}
 
 	private FeignException feignException(int status) {

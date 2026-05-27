@@ -194,6 +194,32 @@ class BenefitSplitRecommendationServiceTest {
 	}
 
 	@Test
+	void recommendAssignsRemainderToPerformanceTargetCardEvenWhenTargetCannotBeReached() {
+		givenCategory(ServiceCategory.CAFE);
+		when(cardRecommendationSourceService.getRecommendationSource(10L))
+			.thenReturn(source(List.of(
+				card(1L, false, 0L, List.of(
+					benefit(100L, "CAFE", "DISCOUNT", 10_000L, tier(null, 2_000L))
+				)),
+				card(2L, false, 20_000L, List.of(
+					benefit(200L, "ETC", "DISCOUNT", null, tier(100_000L, null, null, null))
+				)),
+				card(3L, false, 0L, List.of(
+					benefit(300L, "CAFE", "CASHBACK", 10_000L, tier(null, 1_500L))
+				))
+			)));
+
+		BenefitSplitRecommendationResponse response = recommendationService.recommend(request(25_000L));
+
+		assertThat(response.totalBenefitAmount()).isEqualTo(3_500L);
+		assertThat(response.cards()).extracting("cardId").containsExactly(1L, 3L, 2L);
+		assertThat(response.cards().get(2).amount()).isEqualTo(5_000L);
+		assertThat(response.cards().get(2).targetPerformanceAmount()).isEqualTo(100_000L);
+		assertThat(response.cards().get(2).expectedPerformanceAmount()).isEqualTo(25_000L);
+		assertThat(response.cards().get(2).willReachTarget()).isFalse();
+	}
+
+	@Test
 	void recommendUsesExistingSplitAmountWhenFindingRemainderPerformanceTargetCard() {
 		givenCategory(ServiceCategory.CAFE);
 		when(cardRecommendationSourceService.getRecommendationSource(10L))
@@ -218,7 +244,7 @@ class BenefitSplitRecommendationServiceTest {
 	}
 
 	@Test
-	void recommendAssignsRemainderToTopSplitCardWhenNoPerformanceTargetCanBeReached() {
+	void recommendAssignsRemainderToTopSplitCardWhenNoPerformanceTargetExists() {
 		givenCategory(ServiceCategory.CAFE);
 		when(cardRecommendationSourceService.getRecommendationSource(10L))
 			.thenReturn(source(List.of(

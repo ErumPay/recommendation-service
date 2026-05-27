@@ -157,13 +157,28 @@ public class BenefitSplitRecommendationService {
 		long remainingAmount
 	) {
 		return cards.stream()
-			.filter(card -> {
-				long availableAmount = allocatedAmount(allocations, card) + remainingAmount;
-				PerformanceTargetScore score = performanceTargetCalculator.calculate(card, availableAmount);
-				return score.remainingToTarget() != null && score.remainingToTarget() <= availableAmount;
-			})
+			.map(card -> performanceRemainderCandidate(card, allocations, remainingAmount))
+			.flatMap(Optional::stream)
 			.sorted(performanceRemainderPriority())
+			.map(PerformanceRemainderCandidate::card)
 			.findFirst();
+	}
+
+	private Optional<PerformanceRemainderCandidate> performanceRemainderCandidate(
+		CardRecommendationSourceCardResponse card,
+		List<SplitAllocation> allocations,
+		long remainingAmount
+	) {
+		long allocatedAmount = allocatedAmount(allocations, card);
+		PerformanceTargetScore score = performanceTargetCalculator.calculate(card, allocatedAmount + remainingAmount);
+		if (score.remainingToTarget() == null || score.remainingToTarget() <= allocatedAmount) {
+			return Optional.empty();
+		}
+		return Optional.of(new PerformanceRemainderCandidate(
+			card,
+			score,
+			score.remainingToTarget() - allocatedAmount
+		));
 	}
 
 	private long allocatedAmount(
@@ -326,19 +341,16 @@ public class BenefitSplitRecommendationService {
 			);
 	}
 
-	private Comparator<CardRecommendationSourceCardResponse> performanceRemainderPriority() {
+	private Comparator<PerformanceRemainderCandidate> performanceRemainderPriority() {
 		return Comparator
-			.<CardRecommendationSourceCardResponse, Long>comparing(
-				card -> performanceTargetCalculator.calculate(card, 0L).remainingToTarget(),
-				Comparator.nullsLast(Comparator.naturalOrder())
-			)
+			.comparingLong(PerformanceRemainderCandidate::remainingAfterAllocated)
 			.thenComparing(
-				card -> performanceTargetCalculator.calculate(card, 0L).targetPerformanceAmount(),
+				candidate -> candidate.score().targetPerformanceAmount(),
 				Comparator.nullsLast(Comparator.reverseOrder())
 			)
-			.thenComparing(card -> !Boolean.TRUE.equals(card.isDefault()))
+			.thenComparing(candidate -> !Boolean.TRUE.equals(candidate.card().isDefault()))
 			.thenComparing(
-				CardRecommendationSourceCardResponse::cardId,
+				candidate -> candidate.card().cardId(),
 				Comparator.nullsLast(Comparator.naturalOrder())
 			);
 	}
@@ -395,6 +407,13 @@ public class BenefitSplitRecommendationService {
 	private record SplitCandidate(
 		CardRecommendationSourceCardResponse card,
 		SplitBenefitScore score
+	) {
+	}
+
+	private record PerformanceRemainderCandidate(
+		CardRecommendationSourceCardResponse card,
+		PerformanceTargetScore score,
+		long remainingAfterAllocated
 	) {
 	}
 

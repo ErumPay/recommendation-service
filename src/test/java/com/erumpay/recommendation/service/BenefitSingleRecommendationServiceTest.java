@@ -80,7 +80,7 @@ class BenefitSingleRecommendationServiceTest {
 	}
 
 	@Test
-	void recommendSelectsCardWithLargestSelectedBenefitAmount() {
+	void recommendSelectsCardWithLargestSelectedBenefitAmountWithoutSumming() {
 		givenCategory(ServiceCategory.CAFE);
 		when(cardRecommendationSourceService.getRecommendationSource(10L))
 			.thenReturn(source(List.of(

@@ -22,6 +22,10 @@ reviews:
   auto_assign_reviewers: false
   poem: false
 
+  auto_review:
+    enabled: true
+    auto_incremental_review: true
+
   path_instructions:
     - path: "**/entity/**/*.java"
       instructions: |
@@ -101,10 +105,6 @@ reviews:
         - 포트 충돌 가능성
         - Spring Profile 설정 적절성
         - Kafka / Redis / DB 연결 설정 이상 여부
-
-auto_review:
-  enabled: true
-  auto_incremental_review: true
 
 chat:
   auto_reply: true

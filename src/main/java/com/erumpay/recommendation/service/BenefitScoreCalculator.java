@@ -30,29 +30,18 @@ public class BenefitScoreCalculator {
 	private static final Duration BOUNDARY_WARNING_THRESHOLD = Duration.ofMinutes(10);
 	private static final BigDecimal ONE_HUNDRED = BigDecimal.valueOf(100);
 
-	// [be] 이준혁 260526 1450 | 카드 1장의 적용 가능한 혜택을 유형별 금액과 warning으로 환산한다.
+	// [be] 이준혁 260527 2306 | 카드 1장의 적용 가능한 혜택 중 매출건당 예상 혜택이 가장 큰 1개만 점수로 환산한다.
 	public BenefitScore calculate(
 		CardRecommendationSourceCardResponse card,
 		BenefitScoreContext context
 	) {
-		BenefitAmounts amounts = new BenefitAmounts();
-		Set<String> warnings = new LinkedHashSet<>();
-
-		for (CardBenefitResponse benefit : safeList(card.benefits())) {
-			calculateBenefit(benefit, card, context)
-				.ifPresent(calculation -> {
-					amounts.add(calculation.benefitType(), calculation.amount());
-					warnings.addAll(calculation.warnings());
-				});
-		}
-
-		return new BenefitScore(
-			amounts.discountAmount(),
-			amounts.cashbackAmount(),
-			amounts.mileageAmount(),
-			amounts.totalBenefitAmount(),
-			new ArrayList<>(warnings)
-		);
+		return safeList(card.benefits()).stream()
+			.map(benefit -> calculateBenefit(benefit, card, context))
+			.flatMap(Optional::stream)
+			.sorted(benefitCalculationPriority())
+			.findFirst()
+			.map(this::toBenefitScore)
+			.orElseGet(this::emptyBenefitScore);
 	}
 
 	// [be] 이준혁 260526 1450 | category, brand, 시간, 실적 tier, 한도를 모두 통과한 혜택만 금액으로 환산한다.
@@ -61,7 +50,8 @@ public class BenefitScoreCalculator {
 		CardRecommendationSourceCardResponse card,
 		BenefitScoreContext context
 	) {
-		if (!matchesCategory(benefit, context.paymentCategory())
+		if (!isSupportedBenefitType(benefit.benefitType())
+			|| !matchesCategory(benefit, context.paymentCategory())
 			|| !matchesBrand(benefit, context.normalizedMerchantName())
 			|| !matchesTime(benefit, context.calculatedAt())
 			|| !matchesDay(benefit, context.calculatedAt())
@@ -86,10 +76,53 @@ public class BenefitScoreCalculator {
 		}
 
 		return Optional.of(new BenefitCalculation(
+			benefit.benefitId(),
 			benefit.benefitType(),
 			benefitAmount,
 			warnings(benefit, selectedTier, context.calculatedAt())
 		));
+	}
+
+	// [be] 이준혁 260527 2306 | 최고 혜택이 같으면 benefitId가 작은 혜택을 선택해 카드 내부 결과를 고정한다.
+	private Comparator<BenefitCalculation> benefitCalculationPriority() {
+		return Comparator
+			.comparingLong(BenefitCalculation::amount)
+			.reversed()
+			.thenComparing(
+				BenefitCalculation::benefitId,
+				Comparator.nullsLast(Comparator.naturalOrder())
+			);
+	}
+
+	private BenefitScore toBenefitScore(BenefitCalculation calculation) {
+		return switch (calculation.benefitType()) {
+			case "DISCOUNT" -> new BenefitScore(
+				calculation.amount(),
+				0L,
+				0L,
+				calculation.amount(),
+				calculation.warnings()
+			);
+			case "CASHBACK" -> new BenefitScore(
+				0L,
+				calculation.amount(),
+				0L,
+				calculation.amount(),
+				calculation.warnings()
+			);
+			case "MILEAGE" -> new BenefitScore(
+				0L,
+				0L,
+				calculation.amount(),
+				calculation.amount(),
+				calculation.warnings()
+			);
+			default -> emptyBenefitScore();
+		};
+	}
+
+	private BenefitScore emptyBenefitScore() {
+		return new BenefitScore(0L, 0L, 0L, 0L, List.of());
 	}
 
 	// [be] 이준혁 260526 1450 | 전월실적 조건은 min 이상, max 미만인 tier 중 가장 높은 min 구간을 선택한다.
@@ -110,6 +143,10 @@ public class BenefitScoreCalculator {
 			return benefitCategory == ServiceCategory.ALL;
 		}
 		return benefitCategory == ServiceCategory.ALL || benefitCategory == paymentCategory;
+	}
+
+	private boolean isSupportedBenefitType(String benefitType) {
+		return "DISCOUNT".equals(benefitType) || "CASHBACK".equals(benefitType) || "MILEAGE".equals(benefitType);
 	}
 
 	private boolean matchesBrand(CardBenefitResponse benefit, String normalizedMerchantName) {
@@ -329,42 +366,10 @@ public class BenefitScoreCalculator {
 	}
 
 	private record BenefitCalculation(
+		Long benefitId,
 		String benefitType,
 		long amount,
 		List<String> warnings
 	) {
-	}
-
-	private static final class BenefitAmounts {
-
-		private long discountAmount;
-		private long cashbackAmount;
-		private long mileageAmount;
-
-		void add(String benefitType, long amount) {
-			switch (benefitType) {
-				case "DISCOUNT" -> discountAmount += amount;
-				case "CASHBACK" -> cashbackAmount += amount;
-				case "MILEAGE" -> mileageAmount += amount;
-				default -> {
-				}
-			}
-		}
-
-		long discountAmount() {
-			return discountAmount;
-		}
-
-		long cashbackAmount() {
-			return cashbackAmount;
-		}
-
-		long mileageAmount() {
-			return mileageAmount;
-		}
-
-		long totalBenefitAmount() {
-			return discountAmount + cashbackAmount + mileageAmount;
-		}
 	}
 }

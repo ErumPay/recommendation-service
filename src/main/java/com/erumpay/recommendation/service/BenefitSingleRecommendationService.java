@@ -62,7 +62,7 @@ public class BenefitSingleRecommendationService {
 			.orElseGet(() -> fallbackResponse(cards, context));
 	}
 
-	// [be] 이준혁 260526 1440 | 카드 하나에 적용 가능한 모든 혜택을 유형별로 합산한다.
+	// [be] 이준혁 260527 2306 | 카드 하나의 최고 혜택 1개와 실적 점수를 함께 계산한다.
 	private CardBenefitCandidate calculateCard(
 		CardRecommendationSourceCardResponse card,
 		BenefitScoreContext context

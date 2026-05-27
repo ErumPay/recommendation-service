@@ -437,6 +437,9 @@ public class PerfSplitRecommendationService {
 	}
 
 	private List<CardRecommendationSourceCardResponse> sourceCards(CardRecommendationSourceResponse source) {
+		if (source == null) {
+			return List.of();
+		}
 		return safeList(source.cards());
 	}
 

@@ -67,6 +67,20 @@ class PerfSplitRecommendationServiceTest {
 	}
 
 	@Test
+	void recommendReturnsNoPayableCardWhenCardSourceIsNull() {
+		givenCategory(ServiceCategory.CAFE);
+		when(cardRecommendationSourceService.getRecommendationSource(10L))
+			.thenReturn(null);
+
+		PerfSplitRecommendationResponse response = recommendationService.recommend(request(10_000L));
+
+		assertThat(response.strategyType()).isEqualTo("PERF_SPLIT");
+		assertThat(response.totalBenefitAmount()).isZero();
+		assertThat(response.cards()).isEmpty();
+		assertThat(response.reason()).isEqualTo("NO_PAYABLE_CARD");
+	}
+
+	@Test
 	void recommendRejectsInvalidRequestBeforeCalculation() {
 		assertThatThrownBy(() -> recommendationService.recommend(
 			new PerfSplitRecommendationRequest(null, "Starbucks Gangnam", "5814", 10_000L)

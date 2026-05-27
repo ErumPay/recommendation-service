@@ -135,6 +135,37 @@ class BenefitScoreCalculatorTest {
 		assertThat(candidates).isEmpty();
 	}
 
+	@Test
+	void calculateSplitCandidatesUsesMinAmountWhenRateSaturationAmountIsLower() {
+		CardRecommendationSourceCardResponse card = card(List.of(
+			benefit(100L, "CAFE", "DISCOUNT", 10_000L, null, null, "ALL",
+				tier(new BigDecimal("10.00"), null, 500L, null, null))
+		));
+
+		List<SplitBenefitScore> candidates = calculator.calculateSplitCandidates(card, context(), 20_000L);
+
+		assertThat(candidates).hasSize(1);
+		assertThat(candidates.getFirst().saturationAmount()).isEqualTo(5_000L);
+		assertThat(candidates.getFirst().candidateAmount()).isEqualTo(10_000L);
+		assertThat(candidates.getFirst().benefitAmount()).isEqualTo(500L);
+	}
+
+	@Test
+	void calculateSplitCandidatesUsesRemainingAmountForUnlimitedRateBenefit() {
+		CardRecommendationSourceCardResponse card = card(List.of(
+			benefit(100L, "CAFE", "DISCOUNT", tier(new BigDecimal("10.00"), null, null))
+		));
+
+		List<SplitBenefitScore> candidates = calculator.calculateSplitCandidates(card, context(), 20_000L);
+
+		assertThat(candidates).hasSize(1);
+		assertThat(candidates.getFirst().remainingBenefitLimit()).isNull();
+		assertThat(candidates.getFirst().saturationAmount()).isNull();
+		assertThat(candidates.getFirst().candidateAmount()).isEqualTo(20_000L);
+		assertThat(candidates.getFirst().benefitAmount()).isEqualTo(2_000L);
+		assertThat(candidates.getFirst().benefitEfficiency()).isEqualByComparingTo("0.1000000000");
+	}
+
 	private BenefitScoreContext context() {
 		return new BenefitScoreContext(
 			ServiceCategory.CAFE,

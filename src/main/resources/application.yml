@@ -18,3 +18,6 @@ spring:
     hibernate:
       ddl-auto: validate
     show-sql: true
+
+card:
+  base-url: ${CARD_SERVICE_BASE_URL:http://localhost:8082}

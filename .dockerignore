@@ -10,3 +10,4 @@ out
 *.ipr
 HELP.md
 README.md
+.env

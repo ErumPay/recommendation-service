@@ -45,17 +45,25 @@ public class PerfSingleRecommendationService {
 		CardRecommendationSourceResponse source = cardRecommendationSourceService.getRecommendationSource(
 			request.userId()
 		);
-		List<CardRecommendationSourceCardResponse> cards = sourceCards(source);
-		if (cards.isEmpty()) {
-			return noPayableCardResponse();
-		}
-
 		BenefitScoreContext context = new BenefitScoreContext(
 			paymentCategory,
 			MerchantNameNormalizer.normalize(request.merchantName()),
 			request.amount(),
 			LocalDateTime.now(clock)
 		);
+		return calculate(source, context);
+	}
+
+	// [be] 이준혁 260528 0732 | 통합 추천 계산에서 이미 조회한 추천 소스를 재사용해 PERF_SINGLE 결과를 계산한다.
+	PerfSingleRecommendationResponse calculate(
+		CardRecommendationSourceResponse source,
+		BenefitScoreContext context
+	) {
+		List<CardRecommendationSourceCardResponse> cards = sourceCards(source);
+		if (cards.isEmpty()) {
+			return noPayableCardResponse();
+		}
+
 		return cards.stream()
 			.map(card -> calculateCard(card, context))
 			.filter(candidate -> candidate.performanceScore().hasTarget())
@@ -201,6 +209,9 @@ public class PerfSingleRecommendationService {
 	}
 
 	private List<CardRecommendationSourceCardResponse> sourceCards(CardRecommendationSourceResponse source) {
+		if (source == null) {
+			return List.of();
+		}
 		return safeList(source.cards());
 	}
 

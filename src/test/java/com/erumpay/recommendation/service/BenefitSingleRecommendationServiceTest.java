@@ -80,7 +80,7 @@ class BenefitSingleRecommendationServiceTest {
 	}
 
 	@Test
-	void recommendSelectsCardWithLargestTotalBenefitAmount() {
+	void recommendSelectsCardWithLargestSelectedBenefitAmountWithoutSumming() {
 		givenCategory(ServiceCategory.CAFE);
 		when(cardRecommendationSourceService.getRecommendationSource(10L))
 			.thenReturn(source(List.of(
@@ -95,11 +95,11 @@ class BenefitSingleRecommendationServiceTest {
 
 		BenefitSingleRecommendationResponse response = recommendationService.recommend(request());
 
-		assertThat(response.totalBenefitAmount()).isEqualTo(2_150L);
+		assertThat(response.totalBenefitAmount()).isEqualTo(2_050L);
 		assertThat(response.cards()).hasSize(1);
 		assertThat(response.cards().getFirst().cardId()).isEqualTo(2L);
 		assertThat(response.cards().getFirst().cashbackAmount()).isEqualTo(2_050L);
-		assertThat(response.cards().getFirst().mileageAmount()).isEqualTo(100L);
+		assertThat(response.cards().getFirst().mileageAmount()).isZero();
 		assertThat(response.cards().getFirst().currentPerformanceAmount()).isZero();
 	}
 

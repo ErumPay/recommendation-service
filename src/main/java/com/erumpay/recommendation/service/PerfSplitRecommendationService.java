@@ -47,17 +47,25 @@ public class PerfSplitRecommendationService {
 		CardRecommendationSourceResponse source = cardRecommendationSourceService.getRecommendationSource(
 			request.userId()
 		);
-		List<CardRecommendationSourceCardResponse> cards = sourceCards(source);
-		if (cards.isEmpty()) {
-			return noPayableCardResponse();
-		}
-
 		BenefitScoreContext context = new BenefitScoreContext(
 			paymentCategory,
 			MerchantNameNormalizer.normalize(request.merchantName()),
 			request.amount(),
 			LocalDateTime.now(clock)
 		);
+		return calculate(source, context);
+	}
+
+	// [be] 이준혁 260528 0732 | 통합 추천 계산에서 이미 조회한 추천 소스를 재사용해 PERF_SPLIT 결과를 계산한다.
+	PerfSplitRecommendationResponse calculate(
+		CardRecommendationSourceResponse source,
+		BenefitScoreContext context
+	) {
+		List<CardRecommendationSourceCardResponse> cards = sourceCards(source);
+		if (cards.isEmpty()) {
+			return noPayableCardResponse();
+		}
+
 		Optional<PerformanceCardCandidate> singleCandidate = bestSingleCandidate(cards, context);
 		if (singleCandidate.isEmpty()) {
 			return fallbackResponse(cards, context);

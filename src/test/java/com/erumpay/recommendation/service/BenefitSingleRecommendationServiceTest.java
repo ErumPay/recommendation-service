@@ -100,6 +100,9 @@ class BenefitSingleRecommendationServiceTest {
 		assertThat(response.cards().getFirst().cardId()).isEqualTo(2L);
 		assertThat(response.cards().getFirst().cashbackAmount()).isEqualTo(2_050L);
 		assertThat(response.cards().getFirst().mileageAmount()).isZero();
+		assertThat(response.cards().getFirst().appliedBenefit().benefitId()).isEqualTo(200L);
+		assertThat(response.cards().getFirst().appliedBenefit().tierId()).isEqualTo(1L);
+		assertThat(response.cards().getFirst().appliedBenefit().benefitAmount()).isEqualTo(2_050L);
 		assertThat(response.cards().getFirst().currentPerformanceAmount()).isZero();
 	}
 
@@ -152,6 +155,7 @@ class BenefitSingleRecommendationServiceTest {
 		assertThat(response.totalBenefitAmount()).isZero();
 		assertThat(response.cards()).hasSize(1);
 		assertThat(response.cards().getFirst().cardId()).isEqualTo(2L);
+		assertThat(response.cards().getFirst().appliedBenefit()).isNull();
 		assertThat(response.cards().getFirst().warnings()).containsExactly("NO_APPLICABLE_BENEFIT");
 	}
 

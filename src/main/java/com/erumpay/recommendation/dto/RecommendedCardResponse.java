@@ -13,6 +13,7 @@ public record RecommendedCardResponse(
 	Long cashbackAmount,
 	Long mileageAmount,
 	Long totalBenefitAmount,
+	AppliedBenefitResponse appliedBenefit,
 	Long currentPerformanceAmount,
 	Long targetPerformanceAmount,
 	Long remainingToTarget,

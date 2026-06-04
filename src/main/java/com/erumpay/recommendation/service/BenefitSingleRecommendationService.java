@@ -1,6 +1,7 @@
 package com.erumpay.recommendation.service;
 
 import com.erumpay.recommendation.domain.enums.ServiceCategory;
+import com.erumpay.recommendation.dto.AppliedBenefitResponse;
 import com.erumpay.recommendation.dto.BenefitSingleRecommendationRequest;
 import com.erumpay.recommendation.dto.BenefitSingleRecommendationResponse;
 import com.erumpay.recommendation.dto.CardRecommendationSourceResponse;
@@ -85,6 +86,7 @@ public class BenefitSingleRecommendationService {
 			score.cashbackAmount(),
 			score.mileageAmount(),
 			score.totalBenefitAmount(),
+			appliedBenefit(score),
 			performanceScore.currentPerformanceAmount(),
 			performanceScore.targetPerformanceAmount(),
 			performanceScore.remainingToTarget(),
@@ -135,6 +137,7 @@ public class BenefitSingleRecommendationService {
 				benefitScore.cashbackAmount(),
 				benefitScore.mileageAmount(),
 				benefitScore.totalBenefitAmount(),
+				appliedBenefit(benefitScore),
 				performanceScore.currentPerformanceAmount(),
 				performanceScore.targetPerformanceAmount(),
 				performanceScore.remainingToTarget(),
@@ -167,6 +170,7 @@ public class BenefitSingleRecommendationService {
 			candidate.cashbackAmount(),
 			candidate.mileageAmount(),
 			candidate.totalBenefitAmount(),
+			candidate.appliedBenefit(),
 			candidate.currentPerformanceAmount(),
 			candidate.targetPerformanceAmount(),
 			candidate.remainingToTarget(),
@@ -195,7 +199,15 @@ public class BenefitSingleRecommendationService {
 			.thenComparing(
 				candidate -> candidate.card().cardId(),
 				Comparator.nullsLast(Comparator.naturalOrder())
-			);
+		);
+	}
+
+	private AppliedBenefitResponse appliedBenefit(BenefitScore score) {
+		return AppliedBenefitResponse.of(
+			score.selectedBenefitId(),
+			score.selectedTierId(),
+			score.benefitAmount()
+		);
 	}
 
 	private <T> List<T> safeList(List<T> values) {
@@ -234,6 +246,7 @@ public class BenefitSingleRecommendationService {
 		long cashbackAmount,
 		long mileageAmount,
 		long totalBenefitAmount,
+		AppliedBenefitResponse appliedBenefit,
 		Long currentPerformanceAmount,
 		Long targetPerformanceAmount,
 		Long remainingToTarget,

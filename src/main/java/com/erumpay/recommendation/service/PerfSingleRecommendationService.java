@@ -1,6 +1,7 @@
 package com.erumpay.recommendation.service;
 
 import com.erumpay.recommendation.domain.enums.ServiceCategory;
+import com.erumpay.recommendation.dto.AppliedBenefitResponse;
 import com.erumpay.recommendation.dto.CardRecommendationSourceResponse;
 import com.erumpay.recommendation.dto.CardRecommendationSourceResponse.CardRecommendationSourceCardResponse;
 import com.erumpay.recommendation.dto.MerchantCategoryResolveRequest;
@@ -141,12 +142,21 @@ public class PerfSingleRecommendationService {
 			benefitScore.cashbackAmount(),
 			benefitScore.mileageAmount(),
 			benefitScore.totalBenefitAmount(),
+			appliedBenefit(benefitScore),
 			performanceScore.currentPerformanceAmount(),
 			performanceScore.targetPerformanceAmount(),
 			performanceScore.remainingToTarget(),
 			performanceScore.expectedPerformanceAmount(),
 			performanceScore.willReachTarget(),
 			warnings
+		);
+	}
+
+	private AppliedBenefitResponse appliedBenefit(BenefitScore score) {
+		return AppliedBenefitResponse.of(
+			score.selectedBenefitId(),
+			score.selectedTierId(),
+			score.benefitAmount()
 		);
 	}
 

@@ -1,6 +1,7 @@
 package com.erumpay.recommendation.service;
 
 import com.erumpay.recommendation.domain.enums.ServiceCategory;
+import com.erumpay.recommendation.dto.AppliedBenefitResponse;
 import com.erumpay.recommendation.dto.BenefitSplitRecommendationRequest;
 import com.erumpay.recommendation.dto.BenefitSplitRecommendationResponse;
 import com.erumpay.recommendation.dto.CardRecommendationSourceResponse;
@@ -220,6 +221,7 @@ public class BenefitSplitRecommendationService {
 			score.cashbackAmount(),
 			score.mileageAmount(),
 			score.totalBenefitAmount(),
+			appliedBenefit(score),
 			score.warnings()
 		);
 	}
@@ -267,6 +269,7 @@ public class BenefitSplitRecommendationService {
 			benefitScore.cashbackAmount(),
 			benefitScore.mileageAmount(),
 			benefitScore.totalBenefitAmount(),
+			appliedBenefit(benefitScore),
 			List.of(WARNING_NO_APPLICABLE_BENEFIT)
 		);
 		return new BenefitSplitRecommendationResponse(
@@ -299,12 +302,21 @@ public class BenefitSplitRecommendationService {
 			candidate.cashbackAmount(),
 			candidate.mileageAmount(),
 			candidate.totalBenefitAmount(),
+			candidate.appliedBenefit(),
 			performanceScore.currentPerformanceAmount(),
 			performanceScore.targetPerformanceAmount(),
 			performanceScore.remainingToTarget(),
 			performanceScore.expectedPerformanceAmount(),
 			performanceScore.willReachTarget(),
 			candidate.warnings()
+		);
+	}
+
+	private AppliedBenefitResponse appliedBenefit(BenefitScore score) {
+		return AppliedBenefitResponse.of(
+			score.selectedBenefitId(),
+			score.selectedTierId(),
+			score.benefitAmount()
 		);
 	}
 
@@ -411,6 +423,7 @@ public class BenefitSplitRecommendationService {
 		long cashbackAmount,
 		long mileageAmount,
 		long totalBenefitAmount,
+		AppliedBenefitResponse appliedBenefit,
 		List<String> warnings
 	) {
 	}
@@ -442,6 +455,7 @@ public class BenefitSplitRecommendationService {
 		private final long cashbackAmount;
 		private final long mileageAmount;
 		private final long totalBenefitAmount;
+		private final AppliedBenefitResponse appliedBenefit;
 		private final List<String> warnings;
 
 		private SplitAllocation(
@@ -451,6 +465,7 @@ public class BenefitSplitRecommendationService {
 			long cashbackAmount,
 			long mileageAmount,
 			long totalBenefitAmount,
+			AppliedBenefitResponse appliedBenefit,
 			List<String> warnings
 		) {
 			this.card = card;
@@ -459,6 +474,7 @@ public class BenefitSplitRecommendationService {
 			this.cashbackAmount = cashbackAmount;
 			this.mileageAmount = mileageAmount;
 			this.totalBenefitAmount = totalBenefitAmount;
+			this.appliedBenefit = appliedBenefit;
 			this.warnings = warnings;
 		}
 
@@ -473,12 +489,17 @@ public class BenefitSplitRecommendationService {
 				cashbackAmount,
 				mileageAmount,
 				score.benefitAmount(),
+				AppliedBenefitResponse.of(
+					score.selectedBenefitId(),
+					score.selectedTierId(),
+					score.benefitAmount()
+				),
 				score.warnings()
 			);
 		}
 
 		static SplitAllocation performanceOnly(CardRecommendationSourceCardResponse card, long amount) {
-			return new SplitAllocation(card, amount, 0L, 0L, 0L, 0L, List.of());
+			return new SplitAllocation(card, amount, 0L, 0L, 0L, 0L, null, List.of());
 		}
 
 		void addAmount(long additionalAmount) {
@@ -505,6 +526,7 @@ public class BenefitSplitRecommendationService {
 				cashbackAmount,
 				mileageAmount,
 				totalBenefitAmount,
+				appliedBenefit,
 				warnings
 			);
 		}

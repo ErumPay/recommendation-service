@@ -92,6 +92,7 @@ public class BenefitScoreCalculator {
 
 		return Optional.of(new BenefitCalculation(
 			benefit.benefitId(),
+			selectedTier.tierId(),
 			benefit.benefitType(),
 			benefitAmount,
 			warnings(benefit, selectedTier, context.calculatedAt())
@@ -235,12 +236,18 @@ public class BenefitScoreCalculator {
 				0L,
 				0L,
 				calculation.amount(),
+				calculation.benefitId(),
+				calculation.tierId(),
+				calculation.amount(),
 				calculation.warnings()
 			);
 			case "CASHBACK" -> new BenefitScore(
 				0L,
 				calculation.amount(),
 				0L,
+				calculation.amount(),
+				calculation.benefitId(),
+				calculation.tierId(),
 				calculation.amount(),
 				calculation.warnings()
 			);
@@ -249,6 +256,9 @@ public class BenefitScoreCalculator {
 				0L,
 				calculation.amount(),
 				calculation.amount(),
+				calculation.benefitId(),
+				calculation.tierId(),
+				calculation.amount(),
 				calculation.warnings()
 			);
 			default -> emptyBenefitScore();
@@ -256,7 +266,7 @@ public class BenefitScoreCalculator {
 	}
 
 	private BenefitScore emptyBenefitScore() {
-		return new BenefitScore(0L, 0L, 0L, 0L, List.of());
+		return new BenefitScore(0L, 0L, 0L, 0L, null, null, null, List.of());
 	}
 
 	// [be] 이준혁 260526 1450 | 전월실적 조건은 min 이상, max 미만인 tier 중 가장 높은 min 구간을 선택한다.
@@ -546,6 +556,9 @@ public class BenefitScoreCalculator {
 		long cashbackAmount,
 		long mileageAmount,
 		long totalBenefitAmount,
+		Long selectedBenefitId,
+		Long selectedTierId,
+		Long benefitAmount,
 		List<String> warnings
 	) {
 	}
@@ -568,6 +581,7 @@ public class BenefitScoreCalculator {
 
 	private record BenefitCalculation(
 		Long benefitId,
+		Long tierId,
 		String benefitType,
 		long amount,
 		List<String> warnings

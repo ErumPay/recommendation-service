@@ -29,6 +29,9 @@ class BenefitScoreCalculatorTest {
 		BenefitScore score = calculator.calculate(card, context());
 
 		assertThat(score.totalBenefitAmount()).isEqualTo(2_050L);
+		assertThat(score.selectedBenefitId()).isEqualTo(200L);
+		assertThat(score.selectedTierId()).isEqualTo(1L);
+		assertThat(score.benefitAmount()).isEqualTo(2_050L);
 		assertThat(score.discountAmount()).isZero();
 		assertThat(score.cashbackAmount()).isEqualTo(2_050L);
 		assertThat(score.mileageAmount()).isZero();
@@ -105,6 +108,8 @@ class BenefitScoreCalculatorTest {
 		assertThat(candidates).hasSize(2);
 		SplitBenefitScore flatCandidate = candidates.get(0);
 		SplitBenefitScore rateCandidate = candidates.get(1);
+		assertThat(flatCandidate.selectedBenefitId()).isEqualTo(100L);
+		assertThat(flatCandidate.selectedTierId()).isEqualTo(1L);
 		assertThat(flatCandidate.candidateAmount()).isEqualTo(10_000L);
 		assertThat(flatCandidate.benefitAmount()).isEqualTo(1_000L);
 		assertThat(flatCandidate.benefitEfficiency()).isEqualByComparingTo("0.1000000000");

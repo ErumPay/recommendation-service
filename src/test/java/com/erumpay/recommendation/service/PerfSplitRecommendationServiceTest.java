@@ -109,6 +109,10 @@ class PerfSplitRecommendationServiceTest {
 		assertThat(response.totalBenefitAmount()).isEqualTo(1_200L);
 		assertThat(response.cards()).extracting("cardId").containsExactly(2L, 1L);
 		assertThat(response.cards()).extracting("amount").containsExactly(10_000L, 10_000L);
+		assertThat(response.cards().get(0).appliedBenefit().benefitId()).isEqualTo(200L);
+		assertThat(response.cards().get(0).appliedBenefit().benefitAmount()).isEqualTo(700L);
+		assertThat(response.cards().get(1).appliedBenefit().benefitId()).isEqualTo(100L);
+		assertThat(response.cards().get(1).appliedBenefit().benefitAmount()).isEqualTo(500L);
 		assertThat(response.cards()).extracting("willReachTarget").containsExactly(true, true);
 	}
 

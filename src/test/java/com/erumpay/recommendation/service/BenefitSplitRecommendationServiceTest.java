@@ -95,9 +95,15 @@ class BenefitSplitRecommendationServiceTest {
 		assertThat(response.cards().get(0).cardId()).isEqualTo(1L);
 		assertThat(response.cards().get(0).amount()).isEqualTo(100_000L);
 		assertThat(response.cards().get(0).discountAmount()).isEqualTo(10_000L);
+		assertThat(response.cards().get(0).appliedBenefit().benefitId()).isEqualTo(100L);
+		assertThat(response.cards().get(0).appliedBenefit().tierId()).isEqualTo(1L);
+		assertThat(response.cards().get(0).appliedBenefit().benefitAmount()).isEqualTo(10_000L);
 		assertThat(response.cards().get(1).cardId()).isEqualTo(2L);
 		assertThat(response.cards().get(1).amount()).isEqualTo(10_000L);
 		assertThat(response.cards().get(1).cashbackAmount()).isEqualTo(1_000L);
+		assertThat(response.cards().get(1).appliedBenefit().benefitId()).isEqualTo(200L);
+		assertThat(response.cards().get(1).appliedBenefit().tierId()).isEqualTo(1L);
+		assertThat(response.cards().get(1).appliedBenefit().benefitAmount()).isEqualTo(1_000L);
 	}
 
 	@Test
@@ -189,6 +195,7 @@ class BenefitSplitRecommendationServiceTest {
 		assertThat(response.cards()).extracting("cardId").containsExactly(1L, 3L, 2L);
 		assertThat(response.cards().get(2).amount()).isEqualTo(10_000L);
 		assertThat(response.cards().get(2).totalBenefitAmount()).isZero();
+		assertThat(response.cards().get(2).appliedBenefit()).isNull();
 		assertThat(response.cards().get(2).targetPerformanceAmount()).isEqualTo(30_000L);
 		assertThat(response.cards().get(2).willReachTarget()).isTrue();
 	}

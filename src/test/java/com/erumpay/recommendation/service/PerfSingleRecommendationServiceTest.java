@@ -136,6 +136,9 @@ class PerfSingleRecommendationServiceTest {
 
 		assertThat(response.cards().getFirst().cardId()).isEqualTo(2L);
 		assertThat(response.cards().getFirst().totalBenefitAmount()).isEqualTo(2_000L);
+		assertThat(response.cards().getFirst().appliedBenefit().benefitId()).isEqualTo(200L);
+		assertThat(response.cards().getFirst().appliedBenefit().tierId()).isEqualTo(1L);
+		assertThat(response.cards().getFirst().appliedBenefit().benefitAmount()).isEqualTo(2_000L);
 		assertThat(response.totalBenefitAmount()).isEqualTo(2_000L);
 	}
 

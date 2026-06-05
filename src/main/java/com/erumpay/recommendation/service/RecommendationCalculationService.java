@@ -4,6 +4,7 @@ import com.erumpay.recommendation.domain.enums.ServiceCategory;
 import com.erumpay.recommendation.dto.BenefitSingleRecommendationResponse;
 import com.erumpay.recommendation.dto.BenefitSplitRecommendationResponse;
 import com.erumpay.recommendation.dto.CardRecommendationSourceResponse;
+import com.erumpay.recommendation.dto.MerchantCategoryResolveResponse;
 import com.erumpay.recommendation.dto.MerchantCategoryResolveRequest;
 import com.erumpay.recommendation.dto.PerfSingleRecommendationResponse;
 import com.erumpay.recommendation.dto.PerfSplitRecommendationResponse;
@@ -30,15 +31,17 @@ public class RecommendationCalculationService {
 	private final PerfSingleRecommendationService perfSingleRecommendationService;
 	private final BenefitSplitRecommendationService benefitSplitRecommendationService;
 	private final PerfSplitRecommendationService perfSplitRecommendationService;
+	private final AiBestSelectorService aiBestSelectorService;
 	private final Clock clock;
 
 	// [be] 이준혁 260528 0732 | payment-service 내부 API 요청을 4개 추천 전략의 고정 순서 응답으로 통합한다.
 	public RecommendationCalculateResponse calculate(RecommendationCalculateRequest request) {
 		validateRequest(request);
 		LocalDateTime recommendedAt = LocalDateTime.now(clock);
-		ServiceCategory paymentCategory = merchantCategoryResolverService.resolve(
+		MerchantCategoryResolveResponse merchantCategory = merchantCategoryResolverService.resolve(
 			new MerchantCategoryResolveRequest(request.merchantName(), request.mccCode())
-		).serviceCategory();
+		);
+		ServiceCategory paymentCategory = merchantCategory.serviceCategory();
 		CardRecommendationSourceResponse source = cardRecommendationSourceService.getRecommendationSource(
 			request.userId()
 		);
@@ -52,15 +55,16 @@ public class RecommendationCalculationService {
 			request.amount(),
 			recommendedAt
 		);
+		List<RecommendationStrategyResultResponse> results = List.of(
+			toResult(benefitSingleRecommendationService.calculate(source, context)),
+			toResult(perfSingleRecommendationService.calculate(source, context)),
+			toResult(benefitSplitRecommendationService.calculate(source, context)),
+			toResult(perfSplitRecommendationService.calculate(source, context))
+		);
 		return new RecommendationCalculateResponse(
 			request.paymentId(),
 			recommendedAt,
-			List.of(
-				toResult(benefitSingleRecommendationService.calculate(source, context)),
-				toResult(perfSingleRecommendationService.calculate(source, context)),
-				toResult(benefitSplitRecommendationService.calculate(source, context)),
-				toResult(perfSplitRecommendationService.calculate(source, context))
-			),
+			aiBestSelectorService.applyBest(request, merchantCategory, source, results),
 			null
 		);
 	}

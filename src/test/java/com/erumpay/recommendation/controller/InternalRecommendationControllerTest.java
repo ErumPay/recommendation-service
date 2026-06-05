@@ -63,6 +63,7 @@ class InternalRecommendationControllerTest {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.paymentId").value(123))
 			.andExpect(jsonPath("$.results[0].strategyType").value("BENEFIT_SINGLE"))
+			.andExpect(jsonPath("$.results[0].isBest").value(false))
 			.andExpect(jsonPath("$.results[0].totalBenefitAmount").value(1500));
 	}
 

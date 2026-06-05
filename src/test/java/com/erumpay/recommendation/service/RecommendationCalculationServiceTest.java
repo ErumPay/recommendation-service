@@ -52,6 +52,9 @@ class RecommendationCalculationServiceTest {
 	@Mock
 	private PerfSplitRecommendationService perfSplitRecommendationService;
 
+	@Mock
+	private AiBestSelectorService aiBestSelectorService;
+
 	private RecommendationCalculationService recommendationCalculationService;
 
 	@BeforeEach
@@ -67,6 +70,7 @@ class RecommendationCalculationServiceTest {
 			perfSingleRecommendationService,
 			benefitSplitRecommendationService,
 			perfSplitRecommendationService,
+			aiBestSelectorService,
 			clock
 		);
 	}
@@ -84,6 +88,8 @@ class RecommendationCalculationServiceTest {
 			.thenReturn(new BenefitSplitRecommendationResponse("BENEFIT_SPLIT", 300L, List.of(), null));
 		when(perfSplitRecommendationService.calculate(same(source), any(BenefitScoreContext.class)))
 			.thenReturn(new PerfSplitRecommendationResponse("PERF_SPLIT", 400L, List.of(), null));
+		when(aiBestSelectorService.applyBest(any(), any(), same(source), any()))
+			.thenAnswer(invocation -> invocation.getArgument(3));
 
 		RecommendationCalculateResponse response = recommendationCalculationService.calculate(request());
 
@@ -95,6 +101,7 @@ class RecommendationCalculationServiceTest {
 		assertThat(response.results()).extracting("totalBenefitAmount")
 			.containsExactly(100L, 200L, 300L, 400L);
 		verify(cardRecommendationSourceService).getRecommendationSource(10L);
+		verify(aiBestSelectorService).applyBest(any(), any(), same(source), any());
 	}
 
 	@Test

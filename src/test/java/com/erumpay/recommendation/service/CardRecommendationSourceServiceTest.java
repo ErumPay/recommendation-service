@@ -10,6 +10,7 @@ import com.erumpay.recommendation.client.CardServiceClient;
 import com.erumpay.recommendation.dto.CardRecommendationSourceResponse;
 import com.erumpay.recommendation.exception.CardServiceClientException;
 import com.erumpay.recommendation.exception.CardServiceUnavailableException;
+import com.erumpay.recommendation.exception.ErrorCode;
 import feign.FeignException;
 import feign.Request;
 import feign.Response;
@@ -98,7 +99,8 @@ class CardRecommendationSourceServiceTest {
 
 		assertThatThrownBy(() -> cardRecommendationSourceService.getRecommendationSource(10L, "202604"))
 			.isInstanceOf(CardServiceClientException.class)
-			.hasMessage("card-service 요청 처리 실패")
+			.satisfies(exception -> assertThat(((CardServiceClientException) exception).getErrorCode())
+				.isEqualTo(ErrorCode.CARD_SERVICE_CLIENT_ERROR))
 			.hasCauseInstanceOf(IllegalStateException.class);
 	}
 
@@ -109,7 +111,8 @@ class CardRecommendationSourceServiceTest {
 
 		assertThatThrownBy(() -> cardRecommendationSourceService.getRecommendationSource(10L, "202604"))
 			.isInstanceOf(CardServiceUnavailableException.class)
-			.hasMessage("card-service 연동 실패");
+			.satisfies(exception -> assertThat(((CardServiceUnavailableException) exception).getErrorCode())
+				.isEqualTo(ErrorCode.CARD_SERVICE_UNAVAILABLE));
 	}
 
 	@Test
@@ -119,7 +122,8 @@ class CardRecommendationSourceServiceTest {
 
 		assertThatThrownBy(() -> cardRecommendationSourceService.getRecommendationSource(10L, "202604"))
 			.isInstanceOf(CardServiceClientException.class)
-			.hasMessage("card-service 요청 처리 실패");
+			.satisfies(exception -> assertThat(((CardServiceClientException) exception).getErrorCode())
+				.isEqualTo(ErrorCode.CARD_SERVICE_CLIENT_ERROR));
 	}
 
 	private FeignException feignException(int status) {

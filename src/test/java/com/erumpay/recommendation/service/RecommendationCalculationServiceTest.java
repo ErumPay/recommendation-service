@@ -19,12 +19,19 @@ import com.erumpay.recommendation.dto.PerfSingleRecommendationResponse;
 import com.erumpay.recommendation.dto.PerfSplitRecommendationResponse;
 import com.erumpay.recommendation.dto.RecommendationCalculateRequest;
 import com.erumpay.recommendation.dto.RecommendationCalculateResponse;
+import com.erumpay.recommendation.dto.RecommendationStrategyResultResponse;
 import com.erumpay.recommendation.service.BenefitScoreCalculator.BenefitScoreContext;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -55,24 +62,17 @@ class RecommendationCalculationServiceTest {
 	@Mock
 	private AiBestSelectorService aiBestSelectorService;
 
+	private Clock clock;
+
 	private RecommendationCalculationService recommendationCalculationService;
 
 	@BeforeEach
 	void setUp() {
-		Clock clock = Clock.fixed(
+		clock = Clock.fixed(
 			Instant.parse("2026-05-26T01:00:00Z"),
 			ZoneId.of("Asia/Seoul")
 		);
-		recommendationCalculationService = new RecommendationCalculationService(
-			merchantCategoryResolverService,
-			cardRecommendationSourceService,
-			benefitSingleRecommendationService,
-			perfSingleRecommendationService,
-			benefitSplitRecommendationService,
-			perfSplitRecommendationService,
-			aiBestSelectorService,
-			clock
-		);
+		recommendationCalculationService = newService(Runnable::run);
 	}
 
 	@Test
@@ -89,7 +89,12 @@ class RecommendationCalculationServiceTest {
 		when(perfSplitRecommendationService.calculate(same(source), any(BenefitScoreContext.class)))
 			.thenReturn(new PerfSplitRecommendationResponse("PERF_SPLIT", 400L, List.of(), null));
 		when(aiBestSelectorService.applyBest(any(), any(), same(source), any()))
-			.thenAnswer(invocation -> invocation.getArgument(3));
+			.thenAnswer(invocation -> {
+				List<RecommendationStrategyResultResponse> results = invocation.getArgument(3);
+				assertThat(results).extracting("strategyType")
+					.containsExactly("BENEFIT_SINGLE", "PERF_SINGLE", "BENEFIT_SPLIT", "PERF_SPLIT");
+				return results;
+			});
 
 		RecommendationCalculateResponse response = recommendationCalculationService.calculate(request());
 
@@ -102,6 +107,99 @@ class RecommendationCalculationServiceTest {
 			.containsExactly(100L, 200L, 300L, 400L);
 		verify(cardRecommendationSourceService).getRecommendationSource(10L);
 		verify(aiBestSelectorService).applyBest(any(), any(), same(source), any());
+	}
+
+	@Test
+	void calculateKeepsFixedOrderWhenStrategiesCompleteOutOfOrder() {
+		ExecutorService executor = Executors.newFixedThreadPool(4);
+		try {
+			recommendationCalculationService = newService(executor);
+			CardRecommendationSourceResponse source = source(List.of(card(1L)));
+			CountDownLatch benefitSingleStarted = new CountDownLatch(1);
+			CountDownLatch otherStrategiesFinished = new CountDownLatch(3);
+			givenCategory(ServiceCategory.CAFE);
+			when(cardRecommendationSourceService.getRecommendationSource(10L)).thenReturn(source);
+			when(benefitSingleRecommendationService.calculate(same(source), any(BenefitScoreContext.class)))
+				.thenAnswer(invocation -> {
+					benefitSingleStarted.countDown();
+					await(otherStrategiesFinished);
+					return new BenefitSingleRecommendationResponse("BENEFIT_SINGLE", 100L, List.of(), null);
+				});
+			when(perfSingleRecommendationService.calculate(same(source), any(BenefitScoreContext.class)))
+				.thenAnswer(invocation -> {
+					await(benefitSingleStarted);
+					otherStrategiesFinished.countDown();
+					return new PerfSingleRecommendationResponse("PERF_SINGLE", 200L, List.of(), null);
+				});
+			when(benefitSplitRecommendationService.calculate(same(source), any(BenefitScoreContext.class)))
+				.thenAnswer(invocation -> {
+					await(benefitSingleStarted);
+					otherStrategiesFinished.countDown();
+					return new BenefitSplitRecommendationResponse("BENEFIT_SPLIT", 300L, List.of(), null);
+				});
+			when(perfSplitRecommendationService.calculate(same(source), any(BenefitScoreContext.class)))
+				.thenAnswer(invocation -> {
+					await(benefitSingleStarted);
+					otherStrategiesFinished.countDown();
+					return new PerfSplitRecommendationResponse("PERF_SPLIT", 400L, List.of(), null);
+				});
+			when(aiBestSelectorService.applyBest(any(), any(), same(source), any()))
+				.thenAnswer(invocation -> invocation.getArgument(3));
+
+			RecommendationCalculateResponse response = recommendationCalculationService.calculate(request());
+
+			assertThat(response.results()).extracting("strategyType")
+				.containsExactly("BENEFIT_SINGLE", "PERF_SINGLE", "BENEFIT_SPLIT", "PERF_SPLIT");
+			assertThat(response.results()).extracting("totalBenefitAmount")
+				.containsExactly(100L, 200L, 300L, 400L);
+		} finally {
+			executor.shutdownNow();
+		}
+	}
+
+	@Test
+	void calculateUnwrapsStrategyFailureAndSkipsBestSelector() {
+		CardRecommendationSourceResponse source = source(List.of(card(1L)));
+		RuntimeException failure = new IllegalStateException("strategy failed");
+		givenCategory(ServiceCategory.CAFE);
+		when(cardRecommendationSourceService.getRecommendationSource(10L)).thenReturn(source);
+		when(benefitSingleRecommendationService.calculate(same(source), any(BenefitScoreContext.class)))
+			.thenThrow(new CompletionException(new CompletionException(failure)));
+		when(perfSingleRecommendationService.calculate(same(source), any(BenefitScoreContext.class)))
+			.thenReturn(new PerfSingleRecommendationResponse("PERF_SINGLE", 200L, List.of(), null));
+		when(benefitSplitRecommendationService.calculate(same(source), any(BenefitScoreContext.class)))
+			.thenReturn(new BenefitSplitRecommendationResponse("BENEFIT_SPLIT", 300L, List.of(), null));
+		when(perfSplitRecommendationService.calculate(same(source), any(BenefitScoreContext.class)))
+			.thenReturn(new PerfSplitRecommendationResponse("PERF_SPLIT", 400L, List.of(), null));
+
+		assertThatThrownBy(() -> recommendationCalculationService.calculate(request()))
+			.isSameAs(failure);
+
+		verify(aiBestSelectorService, never()).applyBest(any(), any(), any(), any());
+	}
+
+	@Test
+	void calculatePreservesSplitFallbackStrategyTypes() {
+		CardRecommendationSourceResponse source = source(List.of(card(1L)));
+		givenCategory(ServiceCategory.CAFE);
+		when(cardRecommendationSourceService.getRecommendationSource(10L)).thenReturn(source);
+		when(benefitSingleRecommendationService.calculate(same(source), any(BenefitScoreContext.class)))
+			.thenReturn(new BenefitSingleRecommendationResponse("BENEFIT_SINGLE", 100L, List.of(), null));
+		when(perfSingleRecommendationService.calculate(same(source), any(BenefitScoreContext.class)))
+			.thenReturn(new PerfSingleRecommendationResponse("PERF_SINGLE", 200L, List.of(), null));
+		when(benefitSplitRecommendationService.calculate(same(source), any(BenefitScoreContext.class)))
+			.thenReturn(new BenefitSplitRecommendationResponse("BENEFIT_SPLIT", 0L, List.of(), "CARD_DEFAULT_MISSING"));
+		when(perfSplitRecommendationService.calculate(same(source), any(BenefitScoreContext.class)))
+			.thenReturn(new PerfSplitRecommendationResponse("PERF_SPLIT", 0L, List.of(), "CARD_DEFAULT_MISSING"));
+		when(aiBestSelectorService.applyBest(any(), any(), same(source), any()))
+			.thenAnswer(invocation -> invocation.getArgument(3));
+
+		RecommendationCalculateResponse response = recommendationCalculationService.calculate(request());
+
+		assertThat(response.results()).extracting("strategyType")
+			.containsExactly("BENEFIT_SINGLE", "PERF_SINGLE", "BENEFIT_SPLIT", "PERF_SPLIT");
+		assertThat(response.results()).extracting("reason")
+			.containsExactly(null, null, "CARD_DEFAULT_MISSING", "CARD_DEFAULT_MISSING");
 	}
 
 	@Test
@@ -126,6 +224,24 @@ class RecommendationCalculationServiceTest {
 		))
 			.isInstanceOf(IllegalArgumentException.class)
 			.hasMessage("paymentId must be positive");
+	}
+
+	private RecommendationCalculationService newService(Executor executor) {
+		return new RecommendationCalculationService(
+			merchantCategoryResolverService,
+			cardRecommendationSourceService,
+			benefitSingleRecommendationService,
+			perfSingleRecommendationService,
+			benefitSplitRecommendationService,
+			perfSplitRecommendationService,
+			aiBestSelectorService,
+			clock,
+			executor
+		);
+	}
+
+	private void await(CountDownLatch latch) throws InterruptedException {
+		assertThat(latch.await(1, TimeUnit.SECONDS)).isTrue();
 	}
 
 	private void givenCategory(ServiceCategory serviceCategory) {

@@ -15,12 +15,15 @@ import com.erumpay.recommendation.service.BenefitScoreCalculator.BenefitScoreCon
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 @Service
-@RequiredArgsConstructor
 public class RecommendationCalculationService {
 
 	private static final String REASON_NO_PAYABLE_CARD = "NO_PAYABLE_CARD";
@@ -33,6 +36,29 @@ public class RecommendationCalculationService {
 	private final PerfSplitRecommendationService perfSplitRecommendationService;
 	private final AiBestSelectorService aiBestSelectorService;
 	private final Clock clock;
+	private final Executor recommendationStrategyExecutor;
+
+	public RecommendationCalculationService(
+		MerchantCategoryResolverService merchantCategoryResolverService,
+		CardRecommendationSourceService cardRecommendationSourceService,
+		BenefitSingleRecommendationService benefitSingleRecommendationService,
+		PerfSingleRecommendationService perfSingleRecommendationService,
+		BenefitSplitRecommendationService benefitSplitRecommendationService,
+		PerfSplitRecommendationService perfSplitRecommendationService,
+		AiBestSelectorService aiBestSelectorService,
+		Clock clock,
+		@Qualifier("recommendationStrategyExecutor") Executor recommendationStrategyExecutor
+	) {
+		this.merchantCategoryResolverService = merchantCategoryResolverService;
+		this.cardRecommendationSourceService = cardRecommendationSourceService;
+		this.benefitSingleRecommendationService = benefitSingleRecommendationService;
+		this.perfSingleRecommendationService = perfSingleRecommendationService;
+		this.benefitSplitRecommendationService = benefitSplitRecommendationService;
+		this.perfSplitRecommendationService = perfSplitRecommendationService;
+		this.aiBestSelectorService = aiBestSelectorService;
+		this.clock = clock;
+		this.recommendationStrategyExecutor = recommendationStrategyExecutor;
+	}
 
 	// [be] 이준혁 260528 0732 | payment-service 내부 API 요청을 4개 추천 전략의 고정 순서 응답으로 통합한다.
 	public RecommendationCalculateResponse calculate(RecommendationCalculateRequest request) {
@@ -55,18 +81,77 @@ public class RecommendationCalculationService {
 			request.amount(),
 			recommendedAt
 		);
-		List<RecommendationStrategyResultResponse> results = List.of(
-			toResult(benefitSingleRecommendationService.calculate(source, context)),
-			toResult(perfSingleRecommendationService.calculate(source, context)),
-			toResult(benefitSplitRecommendationService.calculate(source, context)),
-			toResult(perfSplitRecommendationService.calculate(source, context))
-		);
+		List<RecommendationStrategyResultResponse> results = calculateStrategyResults(source, context);
 		return new RecommendationCalculateResponse(
 			request.paymentId(),
 			recommendedAt,
 			aiBestSelectorService.applyBest(request, merchantCategory, source, results),
 			null
 		);
+	}
+
+	private List<RecommendationStrategyResultResponse> calculateStrategyResults(
+		CardRecommendationSourceResponse source,
+		BenefitScoreContext context
+	) {
+		CompletableFuture<RecommendationStrategyResultResponse> benefitSingle = CompletableFuture.supplyAsync(
+			() -> toResult(benefitSingleRecommendationService.calculate(source, context)),
+			recommendationStrategyExecutor
+		);
+		CompletableFuture<RecommendationStrategyResultResponse> perfSingle = CompletableFuture.supplyAsync(
+			() -> toResult(perfSingleRecommendationService.calculate(source, context)),
+			recommendationStrategyExecutor
+		);
+		CompletableFuture<RecommendationStrategyResultResponse> benefitSplit = CompletableFuture.supplyAsync(
+			() -> toResult(benefitSplitRecommendationService.calculate(source, context)),
+			recommendationStrategyExecutor
+		);
+		CompletableFuture<RecommendationStrategyResultResponse> perfSplit = CompletableFuture.supplyAsync(
+			() -> toResult(perfSplitRecommendationService.calculate(source, context)),
+			recommendationStrategyExecutor
+		);
+
+		awaitAll(benefitSingle, perfSingle, benefitSplit, perfSplit);
+		return List.of(
+			join(benefitSingle),
+			join(perfSingle),
+			join(benefitSplit),
+			join(perfSplit)
+		);
+	}
+
+	@SafeVarargs
+	private final void awaitAll(CompletableFuture<RecommendationStrategyResultResponse>... futures) {
+		try {
+			CompletableFuture.allOf(futures).join();
+		} catch (CompletionException exception) {
+			throw unwrap(exception);
+		}
+	}
+
+	private RecommendationStrategyResultResponse join(
+		CompletableFuture<RecommendationStrategyResultResponse> future
+	) {
+		try {
+			return future.join();
+		} catch (CompletionException exception) {
+			throw unwrap(exception);
+		}
+	}
+
+	private RuntimeException unwrap(Throwable exception) {
+		Throwable cause = exception;
+		while ((cause instanceof CompletionException || cause instanceof ExecutionException)
+			&& cause.getCause() != null) {
+			cause = cause.getCause();
+		}
+		if (cause instanceof RuntimeException runtimeException) {
+			return runtimeException;
+		}
+		if (cause instanceof Error error) {
+			throw error;
+		}
+		return new IllegalStateException(cause);
 	}
 
 	private RecommendationCalculateResponse noPayableCardResponse(Long paymentId, LocalDateTime recommendedAt) {

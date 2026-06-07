@@ -296,6 +296,7 @@ public class BenefitSplitRecommendationService {
 			card.cardProductId(),
 			card.cardCompany(),
 			card.cardName(),
+			card.imageUrl(),
 			card.maskedNumber(),
 			candidate.amount(),
 			candidate.discountAmount(),

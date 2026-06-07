@@ -272,6 +272,7 @@ class PerfSplitRecommendationServiceTest {
 			cardId * 100L,
 			"Test Card Company",
 			"Test Card " + cardId,
+			"https://example.com/card.png",
 			"1234-****-****-" + cardId,
 			isDefault,
 			performanceAmount,

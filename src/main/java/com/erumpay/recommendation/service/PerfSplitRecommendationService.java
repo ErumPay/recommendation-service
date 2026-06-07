@@ -353,6 +353,7 @@ public class PerfSplitRecommendationService {
 			card.cardProductId(),
 			card.cardCompany(),
 			card.cardName(),
+			card.imageUrl(),
 			card.maskedNumber(),
 			candidate.amount(),
 			benefitScore.discountAmount(),

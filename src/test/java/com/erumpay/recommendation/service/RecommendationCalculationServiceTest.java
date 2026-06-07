@@ -269,6 +269,7 @@ class RecommendationCalculationServiceTest {
 			cardId * 100L,
 			"Test Card Company",
 			"Test Card " + cardId,
+			"https://example.com/card.png",
 			"1234-****-****-" + cardId,
 			true,
 			0L,

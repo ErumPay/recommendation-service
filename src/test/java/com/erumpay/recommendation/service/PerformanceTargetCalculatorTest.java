@@ -53,6 +53,7 @@ class PerformanceTargetCalculatorTest {
 			100L,
 			"테스트카드사",
 			"테스트카드",
+			"https://example.com/card.png",
 			"1234-****-****-0001",
 			true,
 			performanceAmount,

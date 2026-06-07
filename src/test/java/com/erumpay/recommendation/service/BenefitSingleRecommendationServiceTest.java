@@ -447,6 +447,7 @@ class BenefitSingleRecommendationServiceTest {
 			cardId * 100L,
 			"테스트카드사",
 			"테스트카드" + cardId,
+			"https://example.com/card.png",
 			"1234-****-****-" + cardId,
 			isDefault,
 			performanceAmount,

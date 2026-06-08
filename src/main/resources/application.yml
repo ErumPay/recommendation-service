@@ -1,0 +1,63 @@
+server:
+  port: 8084
+
+spring:
+  config:
+    import: optional:file:.env[.properties]
+
+  application:
+    name: recommendation-service
+
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLING_PROBABILITY:1.0}
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_ENDPOINT:http://erumpay-zipkin.platform-operations.svc.cluster.local:9411/api/v2/spans}
+
+card:
+  base-url: ${CARD_SERVICE_BASE_URL:http://localhost:8082}
+
+payment:
+  base-url: ${PAYMENT_SERVICE_BASE_URL:http://localhost:8083}
+
+recommendation:
+  ai:
+    enabled: ${RECOMMENDATION_AI_SELECTOR_ENABLED:${RECOMMENDATION_GEMINI_SELECTOR_ENABLED:false}}
+    provider: ${RECOMMENDATION_AI_PROVIDER:gemini}
+    api-key: ${RECOMMENDATION_AI_API_KEY:}
+    model: ${RECOMMENDATION_AI_MODEL:}
+    timeout-ms: ${RECOMMENDATION_AI_TIMEOUT_MS:${RECOMMENDATION_GEMINI_TIMEOUT_MS:1500}}
+    max-context-items: ${RECOMMENDATION_AI_MAX_CONTEXT_ITEMS:${RECOMMENDATION_GEMINI_MAX_CONTEXT_ITEMS:20}}
+    debug-reason-log-enabled: ${RECOMMENDATION_AI_DEBUG_REASON_LOG_ENABLED:${RECOMMENDATION_GEMINI_DEBUG_REASON_LOG_ENABLED:false}}
+    context-log-enabled: ${RECOMMENDATION_AI_CONTEXT_LOG_ENABLED:${RECOMMENDATION_GEMINI_CONTEXT_LOG_ENABLED:false}}
+    data-tier: ${RECOMMENDATION_AI_DATA_TIER:${RECOMMENDATION_GEMINI_DATA_TIER:FREE}}
+    free-tier-dummy-data-confirmed: ${RECOMMENDATION_AI_FREE_TIER_DUMMY_DATA_CONFIRMED:${RECOMMENDATION_GEMINI_FREE_TIER_DUMMY_DATA_CONFIRMED:false}}
+    gemini:
+      api-key: ${GEMINI_API_KEY:}
+      model: ${RECOMMENDATION_GEMINI_MODEL:gemini-2.5-flash-lite}
+      base-url: ${RECOMMENDATION_GEMINI_BASE_URL:https://generativelanguage.googleapis.com}
+    openai:
+      api-key: ${OPENAI_API_KEY:}
+      model: ${RECOMMENDATION_OPENAI_MODEL:gpt-4o-mini}
+      base-url: ${RECOMMENDATION_OPENAI_BASE_URL:https://api.openai.com}

@@ -14,6 +14,7 @@ public record CardRecommendationSourceResponse(
 		Long cardProductId,
 		String cardCompany,
 		String cardName,
+		String imageUrl,
 		String maskedNumber,
 		Boolean isDefault,
 		Long performanceAmount,

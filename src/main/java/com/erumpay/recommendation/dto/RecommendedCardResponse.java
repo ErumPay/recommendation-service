@@ -7,6 +7,7 @@ public record RecommendedCardResponse(
 	Long cardProductId,
 	String cardCompany,
 	String cardName,
+	String imageUrl,
 	String maskedNumber,
 	Long amount,
 	Long discountAmount,

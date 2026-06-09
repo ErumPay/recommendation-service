@@ -73,6 +73,20 @@ class BenefitScoreCalculatorTest {
 	}
 
 	@Test
+	void calculateUsesPreviousMonthPerformanceForTierEligibility() {
+		CardRecommendationSourceCardResponse card = card(
+			300_000L,
+			0L,
+			List.of(benefit(100L, "CAFE", "DISCOUNT", tierWithMinUsage(300_000L, 1_000L, null)))
+		);
+
+		BenefitScore score = calculator.calculate(card, context());
+
+		assertThat(score.totalBenefitAmount()).isEqualTo(1_000L);
+		assertThat(score.selectedTierId()).isEqualTo(1L);
+	}
+
+	@Test
 	void calculateKeepsOnlySelectedBenefitWarnings() {
 		CardRecommendationSourceCardResponse card = card(List.of(
 			benefit(
@@ -181,6 +195,14 @@ class BenefitScoreCalculatorTest {
 	}
 
 	private CardRecommendationSourceCardResponse card(List<CardBenefitResponse> benefits) {
+		return card(0L, 0L, benefits);
+	}
+
+	private CardRecommendationSourceCardResponse card(
+		Long previousMonthPerformanceAmount,
+		Long currentMonthPerformanceAmount,
+		List<CardBenefitResponse> benefits
+	) {
 		return new CardRecommendationSourceCardResponse(
 			1L,
 			100L,
@@ -189,7 +211,9 @@ class BenefitScoreCalculatorTest {
 			"https://example.com/card.png",
 			"1234-****-****-0001",
 			true,
-			0L,
+			previousMonthPerformanceAmount,
+			previousMonthPerformanceAmount,
+			currentMonthPerformanceAmount,
 			benefits
 		);
 	}
@@ -254,6 +278,24 @@ class BenefitScoreCalculatorTest {
 
 	private CardBenefitTierResponse tier(BigDecimal rate, Long flatAmount, String tierDesc) {
 		return tier(rate, flatAmount, null, null, null, tierDesc);
+	}
+
+	private CardBenefitTierResponse tierWithMinUsage(Long minPrevMonthUsage, Long flatAmount, String tierDesc) {
+		return new CardBenefitTierResponse(
+			1L,
+			minPrevMonthUsage,
+			null,
+			null,
+			flatAmount,
+			null,
+			null,
+			null,
+			null,
+			null,
+			null,
+			null,
+			tierDesc
+		);
 	}
 
 	private CardBenefitTierResponse tier(

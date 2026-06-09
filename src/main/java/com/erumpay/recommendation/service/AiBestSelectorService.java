@@ -94,13 +94,17 @@ public class AiBestSelectorService {
 		if (usageSummary.isEmpty()) {
 			return fallbackResults;
 		}
+		boolean hasPaymentUsage = hasPaymentUsage(usageSummary.get());
 
 		AiBestSelectionContext context;
 		try {
-			context = context(request, currentMerchant, source, results, usageSummary.get());
+			context = context(request, currentMerchant, source, results, usageSummary.get(), hasPaymentUsage);
 		} catch (RuntimeException exception) {
 			log.warn("AI context creation failed. paymentId={}, errorClass={}",
 				request.paymentId(), exception.getClass().getSimpleName());
+			return fallbackResults;
+		}
+		if (!hasPaymentUsage && !hasPerformanceStrategyContext(context)) {
 			return fallbackResults;
 		}
 
@@ -126,7 +130,8 @@ public class AiBestSelectorService {
 		MerchantCategoryResolveResponse currentMerchant,
 		CardRecommendationSourceResponse source,
 		List<RecommendationStrategyResultResponse> results,
-		PaymentUsageSummaryResponse usageSummary
+		PaymentUsageSummaryResponse usageSummary,
+		boolean hasPaymentUsage
 	) {
 		int maxItems = properties.normalizedMaxContextItems();
 		List<AiBestSelectionContext.MerchantContext> merchants = merchantContexts(usageSummary, maxItems);
@@ -150,6 +155,7 @@ public class AiBestSelectorService {
 				request.amount()
 			),
 			new AiBestSelectionContext.UsageSummary(
+				hasPaymentUsage,
 				nullToZero(usageSummary.totalAmount()),
 				nullToZero(usageSummary.paymentCount()),
 				merchants,
@@ -159,6 +165,28 @@ public class AiBestSelectorService {
 			),
 			strategyContexts(results, source, maxItems, futureBenefitRelevance)
 		);
+	}
+
+	private boolean hasPaymentUsage(PaymentUsageSummaryResponse usageSummary) {
+		if (usageSummary == null) {
+			return false;
+		}
+		return nullToZero(usageSummary.totalAmount()) > 0
+			|| nullToZero(usageSummary.paymentCount()) > 0
+			|| !safeList(usageSummary.merchantUsages()).isEmpty()
+			|| !safeList(usageSummary.cardUsages()).isEmpty();
+	}
+
+	private boolean hasPerformanceStrategyContext(AiBestSelectionContext context) {
+		if (context == null) {
+			return false;
+		}
+		return safeList(context.strategies()).stream()
+			.flatMap(strategy -> safeList(strategy.cards()).stream())
+			.anyMatch(card -> card.targetPerformanceAmount() != null
+				|| card.remainingToTarget() != null
+				|| Boolean.TRUE.equals(card.willReachTarget())
+				|| !safeList(card.futureBenefits()).isEmpty());
 	}
 
 	private List<AiBestSelectionContext.MerchantContext> merchantContexts(

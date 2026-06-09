@@ -44,8 +44,50 @@ class PerformanceTargetCalculatorTest {
 		assertThat(score.hasTarget()).isFalse();
 	}
 
+	@Test
+	void calculateUsesCurrentMonthPerformanceWhenSeparatedFromPreviousMonthPerformance() {
+		CardRecommendationSourceCardResponse card = card(
+			100_000L,
+			20_000L,
+			List.of(benefit(List.of(tier(30_000L), tier(100_000L))))
+		);
+
+		PerformanceTargetScore score = calculator.calculate(card, 15_000L);
+
+		assertThat(score.currentPerformanceAmount()).isEqualTo(20_000L);
+		assertThat(score.targetPerformanceAmount()).isEqualTo(30_000L);
+		assertThat(score.remainingToTarget()).isEqualTo(10_000L);
+		assertThat(score.expectedPerformanceAmount()).isEqualTo(35_000L);
+		assertThat(score.willReachTarget()).isTrue();
+	}
+
+	@Test
+	void calculateDoesNotUsePreviousMonthPerformanceWhenCurrentMonthPerformanceIsMissing() {
+		CardRecommendationSourceCardResponse card = card(
+			420_000L,
+			null,
+			List.of(benefit(List.of(tier(400_000L))))
+		);
+
+		PerformanceTargetScore score = calculator.calculate(card, 1_000_000L);
+
+		assertThat(score.currentPerformanceAmount()).isZero();
+		assertThat(score.targetPerformanceAmount()).isEqualTo(400_000L);
+		assertThat(score.remainingToTarget()).isEqualTo(400_000L);
+		assertThat(score.expectedPerformanceAmount()).isEqualTo(1_000_000L);
+		assertThat(score.willReachTarget()).isTrue();
+	}
+
 	private CardRecommendationSourceCardResponse card(
 		Long performanceAmount,
+		List<CardBenefitResponse> benefits
+	) {
+		return card(performanceAmount, performanceAmount, benefits);
+	}
+
+	private CardRecommendationSourceCardResponse card(
+		Long previousMonthPerformanceAmount,
+		Long currentMonthPerformanceAmount,
 		List<CardBenefitResponse> benefits
 	) {
 		return new CardRecommendationSourceCardResponse(
@@ -56,7 +98,9 @@ class PerformanceTargetCalculatorTest {
 			"https://example.com/card.png",
 			"1234-****-****-0001",
 			true,
-			performanceAmount,
+			previousMonthPerformanceAmount,
+			previousMonthPerformanceAmount,
+			currentMonthPerformanceAmount,
 			benefits
 		);
 	}

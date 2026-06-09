@@ -74,7 +74,8 @@ public class BenefitScoreCalculator {
 			return Optional.empty();
 		}
 
-		Optional<CardBenefitTierResponse> tier = selectApplicableTier(benefit, card.performanceAmount());
+		Optional<CardBenefitTierResponse> tier =
+			selectApplicableTier(benefit, card.benefitEligibilityPerformanceAmount());
 		if (tier.isEmpty()) {
 			return Optional.empty();
 		}
@@ -113,7 +114,8 @@ public class BenefitScoreCalculator {
 			return Optional.empty();
 		}
 
-		Optional<CardBenefitTierResponse> tier = selectApplicableTier(benefit, card.performanceAmount());
+		Optional<CardBenefitTierResponse> tier =
+			selectApplicableTier(benefit, card.benefitEligibilityPerformanceAmount());
 		if (tier.isEmpty() || isCountLimitExhausted(tier.get(), benefit.usage())) {
 			return Optional.empty();
 		}

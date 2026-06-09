@@ -21,6 +21,7 @@ public record AiBestSelectionContext(
 	}
 
 	public record UsageSummary(
+		Boolean hasPaymentUsage,
 		Long totalAmount,
 		Long paymentCount,
 		List<MerchantContext> merchants,

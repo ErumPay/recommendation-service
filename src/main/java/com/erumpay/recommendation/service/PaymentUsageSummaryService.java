@@ -6,7 +6,6 @@ import com.erumpay.recommendation.dto.PaymentUsageSummaryResponse;
 import feign.FeignException;
 import java.time.Clock;
 import java.time.YearMonth;
-import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,7 +28,7 @@ public class PaymentUsageSummaryService {
 
 		try {
 			PaymentUsageSummaryResponse response = paymentServiceClient.getRecommendationUsageSummary(userId, request);
-			if (isEmptyUsage(response)) {
+			if (response == null) {
 				return Optional.empty();
 			}
 			return Optional.of(response);
@@ -43,21 +42,4 @@ public class PaymentUsageSummaryService {
 		}
 	}
 
-	private boolean isEmptyUsage(PaymentUsageSummaryResponse response) {
-		if (response == null) {
-			return true;
-		}
-		return nullToZero(response.totalAmount()) <= 0
-			&& nullToZero(response.paymentCount()) <= 0
-			&& empty(response.merchantUsages())
-			&& empty(response.cardUsages());
-	}
-
-	private boolean empty(List<?> values) {
-		return values == null || values.isEmpty();
-	}
-
-	private long nullToZero(Long value) {
-		return value == null ? 0L : value;
-	}
 }

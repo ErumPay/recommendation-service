@@ -148,6 +148,7 @@ class OpenAiBestSelectorClientTest {
 				10_000L
 			),
 			new AiBestSelectionContext.UsageSummary(
+				true,
 				50_000L,
 				5L,
 				List.of(),

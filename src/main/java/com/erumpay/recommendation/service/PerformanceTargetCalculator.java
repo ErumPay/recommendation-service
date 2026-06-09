@@ -11,7 +11,7 @@ public class PerformanceTargetCalculator {
 
 	// [be] 이준혁 260526 1605 | 카드 1장의 다음 목표 실적과 이번 결제 후 달성 여부를 계산한다.
 	public PerformanceTargetScore calculate(CardRecommendationSourceCardResponse card, long amount) {
-		long currentPerformanceAmount = defaultLong(card.performanceAmount());
+		long currentPerformanceAmount = defaultLong(card.performanceTargetBaseAmount());
 		Long targetPerformanceAmount = findNextTargetPerformanceAmount(card, currentPerformanceAmount);
 		Long remainingToTarget = targetPerformanceAmount == null
 			? null

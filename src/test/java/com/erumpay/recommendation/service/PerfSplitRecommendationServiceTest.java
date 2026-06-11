@@ -137,6 +137,24 @@ class PerfSplitRecommendationServiceTest {
 	}
 
 	@Test
+	void recommendSplitsByCurrentMonthPerformanceEvenWhenPreviousMonthPerformanceAlreadyReachedTargets() {
+		givenCategory(ServiceCategory.CAFE);
+		when(cardRecommendationSourceService.getRecommendationSource(10L))
+			.thenReturn(source(List.of(
+				card(1L, false, 420_000L, null, List.of(targetBenefit(101L, 400_000L))),
+				card(2L, false, 475_000L, null, List.of(targetBenefit(201L, 500_000L)))
+			)));
+
+		PerfSplitRecommendationResponse response = recommendationService.recommend(request(1_000_000L));
+
+		assertThat(response.cards()).extracting("cardId").containsExactly(2L, 1L);
+		assertThat(response.cards()).extracting("amount").containsExactly(500_000L, 500_000L);
+		assertThat(response.cards()).extracting("currentPerformanceAmount").containsExactly(0L, 0L);
+		assertThat(response.cards()).extracting("targetPerformanceAmount").containsExactly(500_000L, 400_000L);
+		assertThat(response.cards()).extracting("willReachTarget").containsExactly(true, true);
+	}
+
+	@Test
 	void recommendAssignsRemainderToFirstPerformanceCardWhenNoTargetRemains() {
 		givenCategory(ServiceCategory.CAFE);
 		when(cardRecommendationSourceService.getRecommendationSource(10L))
@@ -267,6 +285,16 @@ class PerfSplitRecommendationServiceTest {
 		Long performanceAmount,
 		List<CardBenefitResponse> benefits
 	) {
+		return card(cardId, isDefault, performanceAmount, performanceAmount, benefits);
+	}
+
+	private CardRecommendationSourceCardResponse card(
+		Long cardId,
+		boolean isDefault,
+		Long previousMonthPerformanceAmount,
+		Long currentMonthPerformanceAmount,
+		List<CardBenefitResponse> benefits
+	) {
 		return new CardRecommendationSourceCardResponse(
 			cardId,
 			cardId * 100L,
@@ -275,7 +303,9 @@ class PerfSplitRecommendationServiceTest {
 			"https://example.com/card.png",
 			"1234-****-****-" + cardId,
 			isDefault,
-			performanceAmount,
+			previousMonthPerformanceAmount,
+			previousMonthPerformanceAmount,
+			currentMonthPerformanceAmount,
 			benefits
 		);
 	}

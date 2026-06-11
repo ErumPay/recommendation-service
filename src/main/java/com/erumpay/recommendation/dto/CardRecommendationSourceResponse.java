@@ -18,8 +18,44 @@ public record CardRecommendationSourceResponse(
 		String maskedNumber,
 		Boolean isDefault,
 		Long performanceAmount,
+		Long previousMonthPerformanceAmount,
+		Long currentMonthPerformanceAmount,
 		List<CardBenefitResponse> benefits
 	) {
+
+		public CardRecommendationSourceCardResponse(
+			Long cardId,
+			Long cardProductId,
+			String cardCompany,
+			String cardName,
+			String imageUrl,
+			String maskedNumber,
+			Boolean isDefault,
+			Long performanceAmount,
+			List<CardBenefitResponse> benefits
+		) {
+			this(
+				cardId,
+				cardProductId,
+				cardCompany,
+				cardName,
+				imageUrl,
+				maskedNumber,
+				isDefault,
+				performanceAmount,
+				performanceAmount,
+				performanceAmount,
+				benefits
+			);
+		}
+
+		public Long benefitEligibilityPerformanceAmount() {
+			return previousMonthPerformanceAmount == null ? performanceAmount : previousMonthPerformanceAmount;
+		}
+
+		public Long performanceTargetBaseAmount() {
+			return currentMonthPerformanceAmount;
+		}
 	}
 
 	public record CardBenefitResponse(
